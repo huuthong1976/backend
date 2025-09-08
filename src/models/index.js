@@ -3,10 +3,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const Sequelize = require('sequelize');
+const sequelize = new Sequelize(cfg.database, cfg.username, cfg.password, cfg);
 const basename = path.basename(__filename);
-const env = process.env.NODE_ENV || 'development';
-const config = require(__dirname + '/../config/config.json')[env];
+const env = process.env.NODE_ENV || 'production';
+const cfg = require(path.join(__dirname, '/../config/config.js'))[env];
 const db = {};
 
 let sequelize;
