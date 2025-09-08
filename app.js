@@ -12,7 +12,6 @@ process.env.DB_DATABASE  = process.env.DB_DATABASE  || process.env.MYSQLDATABASE
 /* ====== ROUTES (đúng với thư mục src/routes bạn đã chụp) ====== */
 const employeeRoutes            = require('./src/routes/employees');
 const authRoutes                = require('./src/routes/auth');
-const auth                      = require('./src/routes/middlewware_auth'); // file bạn có trong routes
 const dashboardRoutes           = require('./src/routes/dashboard');
 const departmentRoutes          = require('./src/routes/departments');
 const companyRoutes             = require('./src/routes/companies');
@@ -67,11 +66,16 @@ app.use(express.urlencoded({ extended: true }));
 
 
 /* ====== BẢO VỆ /api bằng middleware auth (trừ public paths) ====== */
-const publicPaths = ['/health', '/auth/login', '/auth/register'];
-const { protect } = require('./src/routes/middleware_auth');
+const publicPaths = [ '/auth/login', '/auth/register'];
+const {verifyToken } = require('./src/routes/middleware_auth');
 app.use('/api', (req, res, next) => {
+  // Không cần bảo vệ health check
+  if (req.path.startsWith('/health')) return next();
+  // Bỏ qua các đường dẫn public
   if (publicPaths.some(p => req.path.startsWith(p))) return next();
-  return auth(req, res, next);
+  
+  // FIX 3: Sử dụng đúng hàm "verifyToken" đã import.
+  return verifyToken(req, res, next);
 });
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 /* ====== MOUNT ROUTES ====== */
