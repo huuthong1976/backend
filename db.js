@@ -23,7 +23,7 @@ const pick = (...vals) => vals.find(nonEmpty);
 const HOST = pick(cfgFromUrl?.host, process.env.MYSQLHOST, process.env.DB_HOST, '127.0.0.1');
 const PORT = Number(pick(cfgFromUrl?.port, process.env.MYSQLPORT, process.env.DB_PORT, 3306));
 const USER = pick(cfgFromUrl?.user, process.env.MYSQLUSER, process.env.DB_USER, 'root');
-const PASS = pick(cfgFromUrl?.password, process.env.MYSQLPASSWORD, process.env.MYSQL_ROOT_PASSWORD, process.env.DB_PASSWORD, '');
+const PASS = pick(process.env.MYSQL_ROOT_PASSWORD, process.env.MYSQLPASSWORD, cfgFromUrl?.password, process.env.DB_PASSWORD, '');
 const NAME = pick(cfgFromUrl?.database, process.env.MYSQLDATABASE, process.env.DB_DATABASE, 'railway');
 
 const isInternal = String(HOST).endsWith('.railway.internal');
