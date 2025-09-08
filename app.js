@@ -64,15 +64,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* ====== HEALTH ====== */
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
 
 /* ====== BẢO VỆ /api bằng middleware auth (trừ public paths) ====== */
 const publicPaths = ['/health', '/auth/login', '/auth/register'];
+const { protect } = require('./src/routes/middleware_auth');
 app.use('/api', (req, res, next) => {
   if (publicPaths.some(p => req.path.startsWith(p))) return next();
   return auth(req, res, next);
 });
-
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
 /* ====== MOUNT ROUTES ====== */
 app.use('/api/auth', authRoutes); // (đã thêm slash đầu)
 app.use('/api/employees', employeeRoutes);
