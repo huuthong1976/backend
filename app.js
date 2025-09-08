@@ -12,7 +12,7 @@ process.env.DB_DATABASE  = process.env.DB_DATABASE  || process.env.MYSQLDATABASE
 /* ====== ROUTES (đúng với thư mục src/routes bạn đã chụp) ====== */
 const employeeRoutes            = require('./src/routes/employees');
 const authRoutes                = require('./src/routes/auth');
-const auth                      = require('./src/routes/middleware_auth'); // file bạn có trong routes
+const auth                      = require('./src/routes/middlewware_auth'); // file bạn có trong routes
 const dashboardRoutes           = require('./src/routes/dashboard');
 const departmentRoutes          = require('./src/routes/departments');
 const companyRoutes             = require('./src/routes/companies');
