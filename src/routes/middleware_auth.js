@@ -23,7 +23,7 @@ const protect = async (req, res, next) => {
     // 4. Lấy thông tin người dùng MỚI NHẤT từ database bằng ID trong token
   
     const [rows] = await db.query(
-      'SELECT id, username, role, company_id, status FROM employees WHERE id = ?',
+      'SELECT id, full_name, role, company_id, status FROM employees WHERE id = ?',
       [decoded.user.id]
     );
 
