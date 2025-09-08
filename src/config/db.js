@@ -10,6 +10,7 @@ const HOST = pick(process.env.MYSQLHOST, process.env.DB_HOST, '127.0.0.1');
 const PORT = Number(pick(process.env.MYSQLPORT, process.env.DB_PORT, 3306));
 const USER = pick(process.env.MYSQLUSER, process.env.DB_USER, 'root');
 const PASS = pick(process.env.MYSQLPASSWORD, process.env.DB_PASSWORD, '');
+const PASS = pick(process.env.MYSQL_ROOT_PASSWORD,process.env.MYSQL_ROOT_PASSWORD,'')
 const NAME = pick(process.env.MYSQLDATABASE, process.env.DB_DATABASE, 'railway');
 
 const pool = mysql.createPool({
