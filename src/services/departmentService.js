@@ -9,12 +9,12 @@ const db = require('../config/db');
 const getAll = async (user, filters = {}) => {
     let sql = 'SELECT * FROM departments WHERE 1=1';
     const params = [];
-
+    const isAdmin = String(user?.role).toLowerCase() === 'admin';
     // Áp dụng logic phân quyền và lọc
     let companyIdToFilter = filters.companyId;
-    if (user.role === 'manager' || user.role === 'user') {
-        companyIdToFilter = user.company_id; // Manager/User chỉ thấy phòng ban trong công ty của mình
-    }
+    if (!isAdmin) {
+        companyIdToFilter = user?.company_id || companyIdToFilter;
+      }
 
     if (companyIdToFilter) {
         sql += ' AND company_id = ?';
