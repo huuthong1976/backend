@@ -3,11 +3,11 @@ const mysql = require('mysql2/promise');
 require('dotenv').config();
 
 // Map biến ENV của Railway sang DB_*
-const HOST = process.env.DB_HOST     || process.env.MYSQLHOST || '127.0.0.1';
-const PORT = Number(process.env.DB_PORT || process.env.MYSQLPORT || 3306);
+const HOST = process.env.DB_HOST     || process.env.MYSQLHOST || 'maglev.proxy.rlwy.net';
+const PORT = Number(process.env.DB_PORT || process.env.MYSQLPORT || 55476);
 const USER = process.env.DB_USER     || process.env.MYSQLUSER  || 'root';
-const PASS = process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || 'Thong7690@';
-const NAME = process.env.DB_DATABASE || process.env.MYSQLDATABASE || 'bsc_kpi';
+const PASS = process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || 'czUkgoEBOxGnkrcJfRcvSkrJaFIpNzMP';
+const NAME = process.env.DB_DATABASE || process.env.MYSQLDATABASE || 'railway';
 
 const pool = mysql.createPool({
   host: HOST,

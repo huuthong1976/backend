@@ -51,6 +51,7 @@ app.use('/api', (req, res, next) => {
 });
 
 app.use('/api/employees', employeeRoutes);
+app.use('api/routes/auth', authRoutes)
 app.use('/api/kpi-evaluation', kpiEvaluationRoutes);
 app.use('/api/company-kpi', companyKpiRoutes);
 app.use('/api/dashboard', dashboardRoutes);
