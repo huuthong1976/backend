@@ -67,7 +67,7 @@ app.use(express.urlencoded({ extended: true }));
 
 /* ====== BẢO VỆ /api bằng middleware auth (trừ public paths) ====== */
 const publicPaths = [ '/auth/login', '/auth/register'];
-const {verifyToken } = require('./src/routes/middleware_auth');
+const { protect  } = require('./src/routes/middleware_auth');
 app.use('/api', (req, res, next) => {
   // Không cần bảo vệ health check
   if (req.path.startsWith('/health')) return next();
@@ -75,7 +75,7 @@ app.use('/api', (req, res, next) => {
   if (publicPaths.some(p => req.path.startsWith(p))) return next();
   
   // FIX 3: Sử dụng đúng hàm "verifyToken" đã import.
-  return verifyToken(req, res, next);
+  return protect (req, res, next);
 });
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 /* ====== MOUNT ROUTES ====== */
