@@ -40,16 +40,25 @@ const apiRoutes                 = require('./src/routes/api'); // bạn có file
 const app = express();
 
 // ALLOWED_ORIGIN cho phép nhiều origin, phân tách dấu phẩy
-const allowed = (process.env.ALLOWED_ORIGIN || 'http://localhost:5173,http://localhost:3000')
+const rawOrigins = process.env.ALLOWED_ORIGIN || '';
+const WHITELIST = rawOrigins
   .split(',')
-  .map(s => s.trim());
+  .map(s => s.trim())
+  .filter(Boolean);
 
-app.use(cors({
-  origin: allowed,
-  credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-}));
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      // Cho phép tool không có Origin (curl/Postman/SSR)
+      if (!origin) return cb(null, true);
+      if (WHITELIST.includes(origin)) return cb(null, true);
+      return cb(new Error(`Not allowed by CORS: ${origin}`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
