@@ -12,7 +12,7 @@ router.use(verifyToken);
 router.get('/', protect, async (req, res) => {
     try {
       const [rows] = await db.query(
-        'SELECT id, name FROM companies ORDER BY name'
+        'SELECT id, company_name FROM companies ORDER BY company_name'
       );
       res.json(rows);
     } catch (e) {
