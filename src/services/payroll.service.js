@@ -1,5 +1,5 @@
 
-const { getPool } = require('../db');
+const { getPool } = require('../config/db');
 const PDFDocument = require('pdfkit');
 const nodemailer = require('nodemailer');
 const axios = require('axios');
