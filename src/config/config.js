@@ -37,7 +37,7 @@ module.exports = {
   production: {
     // Railway: dùng 1 biến URL là gọn nhất
     use_env_variable: 'mysql://root:czUkgoEBOxGnkrcJfRcvSkrJaFIpNzON@mysql-u2mk.railway.internal:3306/railway'
-}',
+},
     ...common,
     ...maybeSsl
   }
