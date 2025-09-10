@@ -3,27 +3,27 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-const { protect } = require('./middleware/auth'); 
+const { protect } = require('./src/middleware/auth'); 
 // --- CÁC ROUTER CỦA ỨNG DỤNG ---
-const authRoutes = require('./routes/auth');
-const employeeRoutes = require('./routes/employees');
-const kpiEvaluationRoutes = require('./routes/kpiEvaluation');
-const companyKpiRoutes = require('./routes/companyKpiRoutes');
-const companyKpiResultsRoutes = require('./routes/companyKpiResultsRoutes');
-const monthlyAllocationRoutes = require('./routes/monthlyAllocationRoutes');
-const dashboardRoutes = require('./routes/dashboard');
-const departmentRoutes = require('./routes/departments');
-const companyRoutes = require('./routes/companies');
-const kpiLibraryRoutes = require('./routes/kpiLibraryRoutes');
-const kpiAspectsRoutes = require('./routes/kpiAspects');
-const kpiPlanRoutes = require('./routes/kpiPlan');
-const unitKpiRoutes = require('./routes/unitKpiRoutes');
-const payrollRoutes = require('./routes/payroll.routes');
-const apiRoutes = require('./routes/api');
-const userRoutes = require('./routes/users');
-const profileRoutes = require('./routes/profile');
-const positionRoutes = require('./routes/positions');
-const timekeepingRoutes = require('./routes/timekeeping')
+const authRoutes = require('./src/routes/auth');
+const employeeRoutes = require('./src/routes/employees');
+const kpiEvaluationRoutes = require('./src/routes/kpiEvaluation');
+const companyKpiRoutes = require('./src/routes/companyKpiRoutes');
+const companyKpiResultsRoutes = require('./src/routes/companyKpiResultsRoutes');
+const monthlyAllocationRoutes = require('./src/routes/monthlyAllocationRoutes');
+const dashboardRoutes = require('./src/routes/dashboard');
+const departmentRoutes = require('./src/routes/departments');
+const companyRoutes = require('./src/routes/companies');
+const kpiLibraryRoutes = require('./src/routes/kpiLibraryRoutes');
+const kpiAspectsRoutes = require('./src/routes/kpiAspects');
+const kpiPlanRoutes = require('./src/routes/kpiPlan');
+const unitKpiRoutes = require('./src/routes/unitKpiRoutes');
+const payrollRoutes = require('./src/routes/payroll.routes');
+const apiRoutes = require('./src/routes/api');
+const userRoutes = require('./src/routes/users');
+const profileRoutes = require('./src/routes/profile');
+const positionRoutes = require('./src/routes/positions');
+const timekeepingRoutes = require('./src/routes/timekeeping')
 // Khởi tạo ứng dụng Express
 const app = express();
 
