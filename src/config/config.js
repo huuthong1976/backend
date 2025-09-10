@@ -34,9 +34,4 @@ module.exports = {
     port: Number(process.env.DB_PORT) || 3306,
     ...maybeSsl
   },
-  production: {
-      ...common,
-    use_env_variable: 'mysql://root:czUkgoEBOxGnkrcJfRcvSkrJaFIpNzON@mysql-u2mk.railway.internal:3306/railway',
-    ...maybeSsl
-  }
 };
