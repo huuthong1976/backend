@@ -3,8 +3,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { DataTypes } = require('sequelize');
-const sequelize = require('../../db'); // dùng instance từ db.js
+const { DataTypes } = require('sequelize,Sequelize');
+const sequelize = require('../../db'); 
 const basename = path.basename(__filename);
 
 const db = {};
