@@ -1,4 +1,4 @@
-@'
+
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
@@ -37,4 +37,4 @@ const pool = mysql.createPool({ host: HOST, port: PORT, user: USER, password: PA
 })();
 
 module.exports = pool;
-'@ | Set-Content -NoNewline -Encoding UTF8 db.js
+
