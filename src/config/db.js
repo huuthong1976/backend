@@ -5,7 +5,7 @@ require('dotenv').config({
   path: process.env.DOTENV_PATH || path.join(process.cwd(), '.env')
 });
 const { Sequelize } = require('sequelize');
-const configAll = require('./config/config');
+const configAll = require('./config');
 
 const env = process.env.NODE_ENV || 'development';
 const cfg = configAll[env];
