@@ -34,4 +34,9 @@ module.exports = {
     port: Number(process.env.DB_PORT) || 3306,
     ...maybeSsl
   },
+   production: {
+    ...common,
+    use_env_variable: 'DATABASE_URL', // Bảo Sequelize tìm biến môi trường tên là DATABASE_URL
+    ...maybeSsl
+  }
 };
