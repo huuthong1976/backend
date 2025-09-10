@@ -16,14 +16,17 @@ fs.readdirSync(__dirname)
     file.endsWith('.js')
   )
   .forEach((file) => {
-    const model = require(path.join(__dirname, file))(sequelize, DataTypes);
+    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
     db[model.name] = model;
   });
 
-Object.keys(db).forEach((name) => {
-  if (typeof db[name].associate === 'function') db[name].associate(db);
+Object.keys(db).forEach(modelName => {
+  if (db[modelName].associate) {
+    db[modelName].associate(db);
+  }
 });
 
 db.sequelize = sequelize;
+db.Sequelize = Sequelize;
 
 module.exports = db;
