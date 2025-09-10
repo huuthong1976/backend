@@ -1,19 +1,32 @@
 // src/config/config.js
-const sslOn = process.env.DB_SSL === 'true';
-
-const base = {
-  username: process.env.MYSQLUSER || process.env.DB_USER || 'root',
-  password: process.env.MYSQLPASSWORD || process.env.DB_PASSWORD || '',
-  database: process.env.MYSQLDATABASE || process.env.DB_DATABASE || 'railway',
-  host:     process.env.MYSQLHOST || process.env.DB_HOST || '127.0.0.1',
-  port:     Number(process.env.MYSQLPORT || process.env.DB_PORT || 3306),
-  dialect:  'mysql',
-  logging:  false,
-  dialectOptions: sslOn ? { ssl: { rejectUnauthorized: true } } : {}
-};
+require('dotenv').config();
 
 module.exports = {
-  development: { ...base },
-  test:        { ...base },
-  production:  { ...base }
+  development: {
+    username: process.env.DB_USER || 'root',
+    password: process.env.DB_PASS || null,
+    database: process.env.DB_NAME || 'railway',
+    host: process.env.DB_HOST || '127.0.0.1',
+    port: Number(process.env.DB_PORT) || 3306,
+    dialect: 'mysql',
+    logging: false
+  },
+  test: {
+    username: process.env.DB_USER || 'root',
+    password: process.env.DB_PASS || null,
+    database: process.env.DB_NAME || 'railway',
+    host: process.env.DB_HOST || '127.0.0.1',
+    port: Number(process.env.DB_PORT) || 3306,
+    dialect: 'mysql',
+    logging: false
+  },
+  production: {
+    use_env_variable: 'DATABASE_URL', // dùng URL khi deploy
+    dialect: 'postgres',              // đổi theo DB thực tế
+    protocol: 'postgres',
+    dialectOptions: {
+      ssl: process.env.DB_SSL === 'true' ? { require: true, rejectUnauthorized: false } : undefined
+    },
+    logging: false
+  }
 };
