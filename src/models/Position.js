@@ -13,8 +13,5 @@ module.exports = (sequelize, DataTypes) => {
     }
   });
 
-  // You can define associations here as well
-  Position.associate = (models) => { ... };
-
   return Position;
 };
