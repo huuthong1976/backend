@@ -1,116 +1,79 @@
+// app.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-// Map ENV Railway → DB_* (nếu code chỗ khác còn dùng DB_*)
-process.env.DB_HOST      = process.env.DB_HOST      || process.env.MYSQLHOST;
-process.env.DB_PORT      = process.env.DB_PORT      || process.env.MYSQLPORT;
-process.env.DB_USER      = process.env.DB_USER      || process.env.MYSQLUSER;
-process.env.DB_PASSWORD  = process.env.DB_PASSWORD  || process.env.MYSQLPASSWORD;
-process.env.DB_DATABASE  = process.env.DB_DATABASE  || process.env.MYSQLDATABASE;
-
-/* ====== ROUTES (đúng với thư mục src/routes bạn đã chụp) ====== */
-const employeeRoutes            = require('./src/routes/employees');
-const authRoutes                = require('./src/routes/auth');
-const dashboardRoutes           = require('./src/routes/dashboard');
-const departmentRoutes          = require('./src/routes/departments');
-const companyRoutes             = require('./src/routes/companies');
-const companyKpiRoutes          = require('./src/routes/companyKpiRoutes');
-const companyKpiResultsRoutes   = require('./src/routes/companyKpiResultsRoutes');
-const kpiEvaluationRoutes       = require('./src/routes/kpiEvaluation');
-const kpiLibraryRoutes          = require('./src/routes/kpiLibraryRoutes');
-const kpiPlanRoutes             = require('./src/routes/kpiPlan');
-const kpiRoutes                 = require('./src/routes/kpiRoutes'); // chữ K viết hoa
-const positionsRoutes           = require('./src/routes/positions');
-const profileRoutes             = require('./src/routes/profile');
-const projectsRoutes            = require('./src/routes/projects');
-const plansRoutes               = require('./src/routes/plans');
-const adminRoutes               = require('./src/routes/admin');
-const hrmRoutes                 = require('./src/routes/hrm');
-const notificationsRoutes       = require('./src/routes/notifications');
-const payrollRoutes             = require('./src/routes/payroll.routes');
-const monthlyAllocationRoutes   = require('./src/routes/monthlyAllocationRoutes');
-const kpiAspectsRoutes          = require('./src/routes/kpiAspects');
-const perspectivesRoutes        = require('./src/routes/perspectives');
-const roomsRoutes               = require('./src/routes/rooms');
-const apiRoutes                 = require('./src/routes/api'); // bạn có file này
-
-/* ====== APP & CORS ====== */
+const { protect } = require('./src/middleware/auth'); 
+// --- CÁC ROUTER CỦA ỨNG DỤNG ---
+const authRoutes = require('./src/routes/auth');
+const employeeRoutes = require('./src/routes/employees');
+const kpiEvaluationRoutes = require('./src/routes/kpiEvaluation');
+const companyKpiRoutes = require('./src/routes/companyKpiRoutes');
+const companyKpiResultsRoutes = require('./src/routes/companyKpiResultsRoutes');
+const monthlyAllocationRoutes = require('./src/routes/monthlyAllocationRoutes');
+const dashboardRoutes = require('./src/routes/dashboard');
+const departmentRoutes = require('./src/routes/departments');
+const companyRoutes = require('./src/routes/companies');
+const kpiLibraryRoutes = require('./src/routes/kpiLibraryRoutes');
+const kpiAspectsRoutes = require('./src/routes/kpiAspects');
+const kpiPlanRoutes = require('./src/routes/kpiPlan');
+const unitKpiRoutes = require('./src/routes/unitKpiRoutes');
+const payrollRoutes = require('./src/routes/payroll.routes');
+const apiRoutes = require('./src/routes/api');
+const userRoutes = require('./src/routes/users');
+const profileRoutes = require('./src/routes/profile');
+const positionRoutes = require('./src/routes/positions');
+const timekeepingRoutes = require('./src/routes/timekeeping')
+// Khởi tạo ứng dụng Express
 const app = express();
 
-// ALLOWED_ORIGIN cho phép nhiều origin, phân tách dấu phẩy
-const rawOrigins = process.env.ALLOWED_ORIGIN || '';
-const WHITELIST = rawOrigins
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
 
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      // Cho phép tool không có Origin (curl/Postman/SSR)
-      if (!origin) return cb(null, true);
-      if (WHITELIST.includes(origin)) return cb(null, true);
-      return cb(new Error(`Not allowed by CORS: ${origin}`));
-    },
+// --- CẤU HÌNH MIDDLEWARE ---
+app.use(cors({
+    origin: ['http://localhost:3000', 'http://localhost:8080'],
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
-
+    methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  }));
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-/* ====== HEALTH ====== */
+app.use(express.urlencoded({ extended: true })); 
 
 
-/* ====== BẢO VỆ /api bằng middleware auth (trừ public paths) ====== */
-const publicPaths = [ '/auth/login', '/auth/register'];
-const { protect  } = require('./src/routes/middleware_auth');
-app.use('/api', (req, res, next) => {
-  // Không cần bảo vệ health check
-  if (req.path.startsWith('/health')) return next();
-  // Bỏ qua các đường dẫn public
-  if (publicPaths.some(p => req.path.startsWith(p))) return next();
-  
-  // FIX 3: Sử dụng đúng hàm "verifyToken" đã import.
-  return protect (req, res, next);
-});
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
-/* ====== MOUNT ROUTES ====== */
-app.use('/api/auth', authRoutes); // (đã thêm slash đầu)
+// --- ĐĂNG KÝ ROUTER ---
+// --- CÁC ROUTE CỤ THỂ ---
+app.use('/api/auth', authRoutes);
+app.get('/api/health', (req, res) => {
+    res.json({ ok: true });
+  });
+
 app.use('/api/employees', employeeRoutes);
 app.use('/api/kpi-evaluation', kpiEvaluationRoutes);
 app.use('/api/company-kpi', companyKpiRoutes);
-app.use('/api/company-kpi-results', companyKpiResultsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/kpi-library', kpiLibraryRoutes);
-app.use('/api/kpi-plans', kpiPlanRoutes);
-app.use('/api/kpi', kpiRoutes);
-app.use('/api/positions', positionsRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/api/projects', projectsRoutes);
-app.use('/api/plans', plansRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/hrm', hrmRoutes);
-app.use('/api/notifications', notificationsRoutes);
-app.use('/api/payroll', payrollRoutes);
+app.use('/api/company-kpi-results', companyKpiResultsRoutes);
 app.use('/api/monthly-allocations', monthlyAllocationRoutes);
 app.use('/api/kpi-aspects', kpiAspectsRoutes);
-app.use('/api/perspectives', perspectivesRoutes);
-app.use('/api/rooms', roomsRoutes);
-app.use('/api', apiRoutes); // các route chung nếu có
+app.use('/api/kpi', kpiPlanRoutes);
+app.use('/api/unit-kpi', unitKpiRoutes);
+app.use('/api/payroll', payrollRoutes); 
+app.use('/api/positions', positionRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/timekeeping', timekeepingRoutes );
+// --- CÁC ROUTE CHUNG CHUNG (đặt ở cuối) ---
 
-/* ====== 404 & ERROR HANDLER ====== */
-app.use((req, res) => {
-  res.status(404).json({ error: 'Endpoint not found' });
-});
-app.use((err, _req, res, _next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Internal Server Error' });
+app.use('/api/users', userRoutes);
+app.use('/api', apiRoutes);
+// --- XỬ LÝ LỖI ---
+app.use((req, res, next) => {
+    res.status(404).json({ error: 'Endpoint not found' });
 });
 
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Internal Server Error' });
+});
+// --- XUẤT APP ĐỂ SERVER.JS SỬ DỤNG ---
 module.exports = app;
