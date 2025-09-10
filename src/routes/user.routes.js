@@ -1,50 +1,35 @@
 const express = require('express');
 const router = express.Router();
-const mysql = require('mysql2/promise');
-const employeeController = require('../controllers/employeeController'); // Gọi đến employee controller
-const { getPool } = require('../db');
-const { verifyToken } = require('../middleware/auth'); // Dùng middleware xác thực
 
+// Dùng cấu hình chuẩn { pool, getPool } từ ../db
+let pool = null;
+try {
+  const db = require('../db');
+  pool = (typeof db.getPool === 'function') ? db.getPool() : db.pool;
+} catch (e) {
+  pool = null;
+}
 
-// Endpoint để lấy thông tin người dùng hiện tại
-router.get('/me', async (req, res) => {
-    try {
-        // Đây là một ví dụ đơn giản. Trong thực tế, bạn sẽ lấy thông tin người dùng
-        // từ session, JWT token, hoặc một cơ chế xác thực khác.
-        // Giả sử bạn có một user ID từ token hoặc session
-        const userId = 1; // Thay thế bằng logic lấy user ID thực tế
-        const pool = getPool();
-        const [rows] = await pool.query(
-            `SELECT id, role, company_id FROM employees WHERE id = ? LIMIT 1`,
-            [userId]
-        );
+const employeeController = require('../controllers/employeeController');
+const { protect,authorizeRoles } = require('../middleware/auth');
 
-        if (rows.length > 0) {
-            res.json(rows[0]);
-        } else {
-            res.status(404).json({ error: 'User not found' });
-        }
-    } catch (err) {
-        console.error('GET /me error:', err);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
+// Helper query promise
+async function queryAsync(sql, params = []) {
+  if (!pool) throw new Error('DB pool is not configured');
+  return pool.query(sql, params); // mysql2/promise -> trả Promise
+}
+
+// GET /api/users/me
+router.get('/me', protect, employeeController.getMe);
+
 // LẤY HỒ SƠ + DANH MỤC (company/department/position)
-router.get('/my-profile', verifyToken, employeeController.getMyProfile);
+router.get('/my-profile', protect, employeeController.getMyProfile);
 
 // CHỈ LẤY DANH MỤC (phục vụ form)
-router.get('/form-data', verifyToken, employeeController.getDataForForm);
+router.get('/form-data', protect, employeeController.getDataForForm);
 
-// LẤY HỒ SƠ (employee object theo id trong token)
-router.get('/profile', verifyToken, (req, res, next) => {
-  if (req.user && req.user.employee_id) {
-    req.params.id = req.user.employee_id;
-    return employeeController.getEmployeeById(req, res, next);
-  }
-  return res.status(401).json({ error: 'Token không chứa thông tin nhân viên.' });
-});
 
 // CẬP NHẬT HỒ SƠ CỦA CHÍNH NGƯỜI DÙNG
-router.put('/profile', verifyToken, employeeController.updateMyProfile);
+router.put('/profile', protect, employeeController.updateMyProfile);
 
 module.exports = router;

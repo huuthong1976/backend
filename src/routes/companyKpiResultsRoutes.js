@@ -2,10 +2,10 @@
 const express = require('express');
 const router = express.Router();
 const companyKpiResultsController = require('../controllers/companyKpiResultsController');
-const { verifyToken, authorizeRoles } = require('../middleware/auth');
+const { protect, authorizeRoles } = require('../middleware/auth');
 
 // Tất cả các route trong file này đều yêu cầu xác thực
-router.use(verifyToken);
+router.use(protect);
 
 /**
  * @route   GET /api/company-kpi-results
@@ -21,7 +21,7 @@ router.get('/', companyKpiResultsController.getResults);
  */
 router.post(
     '/', 
-    authorizeRoles(['admin', 'TruongDonVi']), 
+    authorizeRoles(['Admin', 'TruongDonVi']), 
     companyKpiResultsController.saveResults
 );
 router.get('/company-kpi-summary', companyKpiResultsController.getSummary);

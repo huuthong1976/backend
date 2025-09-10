@@ -159,25 +159,19 @@ const getMyProfile = async (req, res) => {
         return res.status(500).json({ error: 'Internal server error' });
       }
     };  
-const getDataForForm = async (req, res) => {
-    try {
-        const companies = await companyService.getAll(req.user);
-        const departments = await departmentService.getAll(req.user);
-        const positions = await positionService.getAll(req.user);
-        // Dùng lại hàm có sẵn để lấy danh sách nhân viên làm quản lý
-        const managers = await employeeService.getEmployeeListForSelect(req.user);
-
-        res.status(200).json({
-            companies,
-            departments,
-            positions,
-            managers
-        });
-    } catch (error) {
-        console.error('Error in getDataForForm controller:', error);
-        res.status(500).json({ error: 'Lỗi server khi lấy dữ liệu cho form.' });
-    }
-};
+    async function getDataForForm(req, res) {
+        try {
+          const [companies, departments, positions] = await Promise.all([
+            companyService.getAll().catch(() => []),
+            departmentService.getAll().catch(() => []),
+            positionService.getAll().catch(() => []),
+          ]);
+          res.json({ companies, departments, positions });
+        } catch (err) {
+          console.error('Error in getDataForForm controller:', err);
+          res.status(500).json({ error: 'Internal Server Error' });
+        }
+      }
 const updateMyProfile = async (req, res) => {
     try {
         const id = Number(req.user?.id || req.user?.employee_id);
@@ -195,9 +189,35 @@ const updateMyProfile = async (req, res) => {
         return res.status(500).json({ error: 'Update profile failed' });
       }
 };
+const getMe = async (req, res) => {
+    try {
+        // req.user is populated by the 'protect' middleware from the JWT
+        const { id, role, company_id, employee_id } = req.user;
 
+        if (!id) {
+            return res.status(401).json({ error: 'Invalid token.' });
+        }
+        
+        // You can query the database for the most up-to-date info if needed
+        // For now, returning info from the token is fast and efficient.
+        const userProfile = await db.User.findByPk(id, {
+             attributes: ['id', 'role', 'company_id']
+        });
+        
+        if (!userProfile) {
+           return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.json(userProfile);
+
+    } catch (err) {
+        console.error('GET /me error:', err);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
 module.exports = {
     listEmployees,
+    getMe,
     getDataForForm,
     getEmployeeSelectList,
     getEmployee,
@@ -208,6 +228,6 @@ module.exports = {
     updateMyProfile,
     updateEmployeeStatus,
     deleteEmployee,
-
+    getAllEmployees: listEmployees,
 
 };

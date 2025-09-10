@@ -28,6 +28,7 @@ exports.getPayrollSummary = async (req, res) => {
         const payrollData = await payrollService.getPayrollSummary(company_id, department_id, month, year);
         res.json(payrollData);
     } catch (err) {
+        console.error('Lỗi khi lấy payroll summary:', err); 
         res.status(500).json({ error: 'Không tải được bảng lương.' });
     }
 };

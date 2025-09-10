@@ -2,9 +2,9 @@
 const express = require('express');
 const router = express.Router();
 const unitKpiController = require('../controllers/unitKpiController'); // Import controller
-const { verifyToken } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
-router.use(verifyToken);
+router.use(protect);
 
 // Đảm bảo hàm `getAnnualRegistrations` tồn tại trong unitKpiController
 router.get('/registrations', unitKpiController.getAnnualRegistrations);

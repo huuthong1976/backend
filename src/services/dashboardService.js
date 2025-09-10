@@ -1,5 +1,6 @@
 // server/services/dashboardService.js
-const db = require('../config/db');
+const { pool, getPool }  = require('../config/db');
+const db = (typeof getPool === 'function') ? getPool() : pool;
 
 /**
  * Lấy dữ liệu tổng hợp cho trang Dashboard, truy vấn trực tiếp từ MySQL.
@@ -16,10 +17,10 @@ const getSummaryData = async (user, filters) => {
     let companyFilterSql = '';
     const companyParams = [];
 
-    if (user.role === 'manager') {
+    if (user.role === 'TruongDonVi') {
         companyFilterSql = 'AND e.company_id = ?';
         companyParams.push(user.company_id);
-    } else if ((user.role === 'admin' || user.role === 'director') && filters.companyId) {
+    } else if ((user.role === 'Admin' || user.role === 'TongGiamDoc') && filters.companyId) {
         companyFilterSql = 'AND e.company_id = ?';
         companyParams.push(filters.companyId);
     }
@@ -78,7 +79,7 @@ const getSummaryData = async (user, filters) => {
                 [month, year, ...companyParams]
             ),
             // 6. Lấy danh sách công ty (chỉ khi user là admin/director)
-            (user.role === 'admin' || user.role === 'director')
+            (user.role === 'Admin' || user.role === 'TongGiamDoc')
                 ? db.query('SELECT id, company_name as name FROM companies ORDER BY name ASC')
                 : Promise.resolve([[]]) // Trả về mảng rỗng nếu không có quyền
         ]);

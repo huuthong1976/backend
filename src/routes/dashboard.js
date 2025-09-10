@@ -6,12 +6,12 @@ const router = express.Router();
 const dashboardController = require('../controllers/dashboardController');
 
 // Import middleware để bảo vệ các route
-const { verifyToken, authorizeRoles } = require('../middleware/auth');
+const { protect, authorizeRoles } = require('../middleware/auth');
 
 // --- ÁP DỤNG MIDDLEWARE XÁC THỰC ---
 // Tất cả các route được định nghĩa trong file này đều yêu cầu người dùng phải đăng nhập.
 // Token hợp lệ sẽ được kiểm tra trước khi bất kỳ hàm controller nào được gọi.
-router.use(verifyToken);
+router.use(protect);
 
 // --- ĐỊNH NGHĨA ROUTE CHO DASHBOARD ---
 

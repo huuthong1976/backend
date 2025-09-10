@@ -1,24 +1,33 @@
 const express = require('express');
 const router = express.Router();
 const employeeController = require('../controllers/employeeController');
-const { verifyToken, authorizeRoles } = require('../middleware/auth');
+// Import cả hai hàm từ middleware
+const { protect, authorizeRoles } = require('../middleware/auth');
+const employeeCtrl = require('../controllers/employeeController');
 
-router.use(verifyToken);
+// Tất cả các route trong file này đều yêu cầu phải đăng nhập
+router.use(protect);
+router.get('/profile', protect, employeeCtrl.getMyProfile);
+router.put('/profile', protect, employeeCtrl.updateMyProfile);
 
-// Hồ sơ của tôi
-router.get('/profile', employeeController.getMyProfile);
-router.put('/profile', employeeController.updateMyProfile);
-
-// Dữ liệu cho form (companies/departments/positions/managers)
 router.get('/data-for-form', employeeController.getDataForForm);
-
-// Danh sách / chi tiết
+// API lấy danh sách nhân viên: Ai cũng có thể xem (sau khi đăng nhập)
 router.get('/', employeeController.listEmployees);
+//router.get('/:id', employeeController.getEmployeeById);
+// API xem chi tiết nhân viên: Ai cũng có thể xem
+
 router.get('/:id', employeeController.getEmployee);
 
-// Ghi dữ liệu theo quyền thực tế
-router.post('/', authorizeRoles(['Admin','TruongDonVi']), employeeController.createEmployee);
-router.put('/:id', authorizeRoles(['Admin','TruongDonVi']), employeeController.updateEmployee);
+// API tạo mới nhân viên: Chỉ Admin và Manager được phép
+router.post('/', authorizeRoles(['Admin', 'TruongDonVi']), employeeController.createEmployee);
+
+// API cập nhật nhân viên: Chỉ Admin và Manager được phép
+router.put('/:id', authorizeRoles(['Admin', 'TruongDonVi']), employeeController.updateEmployee);
+// API để nhân viên tự cập nhật profile
+
+// API xóa nhân viên: Chỉ Admin được phép
 router.delete('/:id', authorizeRoles(['Admin']), employeeController.deleteEmployee);
+
+router.get('/', authorizeRoles('Admin', 'TongGiamDoc'), employeeController.getAllEmployees);
 
 module.exports = router;

@@ -1,16 +1,25 @@
-// server/controllers/positionController.js
-const positionService = require('../services/positionService');
+const { pool, getPool } = require('../config/db');
+const db = (typeof getPool === 'function') ? getPool() : pool;
 
-// Lấy danh sách chức vụ
+/**
+ * @desc    Get all positions using a direct SQL query
+ * @route   GET /api/positions
+ * @access  Private
+ */
 const listPositions = async (req, res) => {
+    console.log("--- STARTING TEST: Fetching positions with raw SQL ---");
     try {
-        const positions = await positionService.getAll();
+        // This line will now work because 'db' is defined
+        const [positions] = await db.query('SELECT id, position_name FROM positions ORDER BY position_name ASC;');
+        
+        console.log("--- TEST SUCCESSFUL: Data from SQL:", positions);
         res.json(positions);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+
+    } catch (error) {
+        console.error('--- TEST FAILED: Error fetching positions with raw SQL:', error);
+        res.status(500).json({ error: 'Lỗi máy chủ' });
     }
 };
-
 // Tạo chức vụ mới
 const createPosition = async (req, res) => {
     const { position_name } = req.body;

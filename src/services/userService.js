@@ -1,5 +1,6 @@
 // server/services/userService.js
-const db = require('../config/db');
+const { pool, getPool }  = require('../config/db');
+const db = (typeof getPool === 'function') ? getPool() : pool;
 const bcrypt = require('bcrypt');
 
 // ... các hàm khác

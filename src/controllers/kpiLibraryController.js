@@ -1,5 +1,7 @@
 // server/controllers/kpiLibraryController.js
-//const db = require('../db');
+const { pool, getPool } = require('../config/db');
+const db = (typeof getPool === 'function') ? getPool() : pool;
+const  kpiLibraryService = require('../services/kpiLibraryService'); 
 const svc = require('../services/kpiLibraryService');
 
 const getKpiLibrary = async (req, res) => {

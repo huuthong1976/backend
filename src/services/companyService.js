@@ -1,12 +1,13 @@
 // server/services/companyService.js
-const db = require('../config/db');
+const { pool, getPool }  = require('../config/db');
+const db = (typeof getPool === 'function') ? getPool() : pool;
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 /**
  * Lấy danh sách tất cả các công ty (có thể có phân trang).
  */
 const getAll = async () => {
-    const sql = ('SELECT id, company_code,company_name, address,tax_code,phone,email, status FROM companies ORDER BY company_name ASC');
+    const sql = ('SELECT id, company_code, company_name, address,tax_code,phone,email, status FROM companies ORDER BY company_name ASC');
     const [companies] = await db.query(sql);
     return companies;
 };

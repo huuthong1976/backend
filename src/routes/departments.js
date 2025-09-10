@@ -2,18 +2,21 @@
 const express = require('express');
 const router = express.Router();
 const departmentController = require('../controllers/departmentController');
-const { verifyToken, authorizeRoles } = require('../middleware/auth');
+const { protect, authorizeRoles } = require('../middleware/auth');
 
-router.use(verifyToken);
+// Tất cả các route đều yêu cầu đăng nhập
+router.use(protect);
 
-// LIST (ai đăng nhập cũng xem được)
+// Lấy danh sách phòng ban
 router.get('/', departmentController.listDepartments);
 
-// CREATE/UPDATE: cho Admin & Trưởng đơn vị
-router.post('/', authorizeRoles(['Admin','TruongDonVi']), departmentController.createDepartment);
-router.put('/:id', authorizeRoles(['Admin','TruongDonVi']), departmentController.updateDepartment);
+// Tạo mới phòng ban (chỉ Admin và Manager)
+router.post('/', authorizeRoles(['Admin', 'TruongDonVi']), departmentController.createDepartment);
 
-// DELETE: chỉ Admin
+// Cập nhật phòng ban (chỉ Admin và Manager)
+router.put('/:id', authorizeRoles(['Admin', 'TruongDonVi']), departmentController.updateDepartment);
+
+// Xóa phòng ban (chỉ Admin)
 router.delete('/:id', authorizeRoles(['Admin']), departmentController.deleteDepartment);
 
 module.exports = router;

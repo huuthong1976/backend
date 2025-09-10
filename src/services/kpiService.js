@@ -166,7 +166,7 @@ const upsertKpiPlan = async (planData) => {
                 // Câu lệnh này sẽ UPDATE nếu có dòng với 'id' tương ứng,
                 // hoặc INSERT một dòng mới nếu 'id' là null/undefined.
                 const sql = `
-                    INSERT INTO employee_work_plans (id, employee_id, month, year, name, target, unit, weight, result, self_score, manager_score, director_score, status, unit_kpi_registration_id)
+                    INSERT INTO kpi_plan_items (id, employee_id, month, year, name, target, unit, weight, result, self_score, manager_score, director_score, status, unit_kpi_registration_id)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
                         name = VALUES(name), target = VALUES(target), unit = VALUES(unit), 

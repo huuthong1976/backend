@@ -2,13 +2,13 @@
 const express = require('express');
 const router = express.Router();
 const kpiLibraryController = require('../controllers/kpiLibraryController');
-const { verifyToken } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Tất cả các route trong file này đều yêu cầu đăng nhập
 
-router.use(verifyToken);
+router.use(protect);
 
 
 

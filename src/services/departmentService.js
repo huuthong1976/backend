@@ -1,5 +1,6 @@
 // server/services/departmentService.js
-const db = require('../config/db');
+const { pool, getPool }  = require('../config/db');
+const db = (typeof getPool === 'function') ? getPool() : pool;
 
 /**
  * Lấy danh sách phòng ban, có lọc theo công ty.
@@ -9,12 +10,12 @@ const db = require('../config/db');
 const getAll = async (user, filters = {}) => {
     let sql = 'SELECT * FROM departments WHERE 1=1';
     const params = [];
-    const isAdmin = String(user?.role).toLowerCase() === 'admin';
+
     // Áp dụng logic phân quyền và lọc
     let companyIdToFilter = filters.companyId;
-    if (!isAdmin) {
-        companyIdToFilter = user?.company_id || companyIdToFilter;
-      }
+    if (user.role === 'manager' || user.role === 'user') {
+        companyIdToFilter = user.company_id; // Manager/User chỉ thấy phòng ban trong công ty của mình
+    }
 
     if (companyIdToFilter) {
         sql += ' AND company_id = ?';

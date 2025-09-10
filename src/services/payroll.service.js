@@ -1,5 +1,6 @@
 
-const { getPool } = require('../config/db');
+const { pool, getPool }  = require('../config/db');
+const db = (typeof getPool === 'function') ? getPool() : pool;
 const PDFDocument = require('pdfkit');
 const nodemailer = require('nodemailer');
 const axios = require('axios');
@@ -127,14 +128,14 @@ async function getKpiScores(conn, employeeId, companyId, month, year) {
 // =======================================================================
 
 const getCompanies = async () => {
-    const pool = getPool();
+   
     if (!pool) throw new Error('Không thể kết nối đến cơ sở dữ liệu.');
     const [companies] = await pool.query('SELECT id, company_name FROM companies ORDER BY company_name');
     return companies;
 };
 
 const getDepartments = async (companyId) => {
-    const pool = getPool();
+    
     const [departments] = await pool.query(
         'SELECT id, department_name FROM departments WHERE company_id = ? ORDER BY department_name',
         [companyId]
@@ -143,7 +144,7 @@ const getDepartments = async (companyId) => {
 };
 
 const getPayrollSummary = async (company_id, department_id, month, year) => {
-    const pool = getPool();
+  
     let sql = `
         SELECT
             e.id AS employee_id, 
@@ -370,7 +371,7 @@ const saveAdjustments = async (data) => {
 };
 
 const getPayslipData = async (employeeId, companyId, month, year) => {
-    const pool = getPool();
+
     const [rows] = await pool.query(
         `
         SELECT 
@@ -392,7 +393,7 @@ const getPayslipData = async (employeeId, companyId, month, year) => {
 };
 
 const exportPayroll = async (params) => {
-    const pool = getPool();
+   
     const { company_id, month, year } = params;
     const [rows] = await pool.query(
         `
@@ -436,7 +437,7 @@ const createTemplate = () => {
 };
 
 const importAdjustments = async (file, params) => {
-    const pool = getPool();
+
     const { company_id, month, year } = params;
     const wb = xlsx.read(file.buffer, { type: 'buffer' });
     const sheet = wb.Sheets[wb.SheetNames[0]];

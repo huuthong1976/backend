@@ -2,6 +2,7 @@
 const db = require('../models');
 const { Op } = require('sequelize');
 
+// Hàm helper để lấy ID cấp dưới
 async function getSubordinateIds(managerId) {
   const subordinates = await db.Employee.findAll({
     where: { manager_id: managerId },
@@ -10,34 +11,23 @@ async function getSubordinateIds(managerId) {
   return subordinates.map(s => s.id);
 }
 
+// Lấy kế hoạch KPI
 exports.getMyPlan = async (req, res) => {
   try {
     const userId = req.user.id;
-    const userRole = req.user.role;
-    const month = parseInt(req.query.month);
-    const year = parseInt(req.query.year);
+    const { month, year } = req.query;
 
     if (!month || !year) {
-      return res.status(400).json({ error: 'Missing month or year information' });
+      return res.status(400).json({ error: 'Thiếu thông tin tháng hoặc năm' });
     }
 
-    let whereClause = { month, year };
-
-    if (['NhanvienCM', 'Phophong', 'Truongphong', 'PhoDV'].includes(userRole)) {
-      whereClause.employee_id = userId;
-    } else if (userRole === 'TruongDonVi') {
-      const subordinateIds = await getSubordinateIds(userId);
-      whereClause.employee_id = {
-        [Op.in]: [...subordinateIds, userId],
-      };
-    } else if (userRole === 'TongGiamDoc' || userRole === 'Admin') {
-      // TGĐ và Admin có thể xem tất cả
-    } else {
-      return res.status(403).json({ error: 'Your role does not have permission to view this plan.' });
-    }
-
+    // Chỉ lấy kế hoạch của chính người dùng này
     const plan = await db.KpiPlan.findOne({
-      where: whereClause,
+      where: { 
+        employee_id: userId,
+        month: parseInt(month), 
+        year: parseInt(year) 
+      },
       include: [
         { model: db.KpiPlanItem, as: 'items' },
         { model: db.Employee, as: 'employee', attributes: ['id', 'full_name', 'role'] }
@@ -47,21 +37,19 @@ exports.getMyPlan = async (req, res) => {
       ],
     });
 
-    if (!plan || plan.length === 0) {
+    // SỬA LỖI: Kiểm tra `plan` là object, không phải array. Bỏ logic trả về mảng rỗng.
+    if (!plan) {
       return res.json({ message: 'No plan found for this period.' });
-    }
-    
-    // Nếu là nhân viên thường hoặc Trưởng Đơn vị tự xem kế hoạch của mình, chỉ trả về 1 plan
-    if (['NhanvienCM', 'Phophong', 'Truongphong', 'PhoDV', 'TruongDonVi'].includes(userRole) && plan.length === 1) {
-      return res.json({ items: [] });
     }
 
     res.json(plan);
   } catch (err) {
     console.error("Lỗi getMyPlan:", err);
-    res.status(500).json({ error: 'Server error while loading KPI plan' });
+    res.status(500).json({ error: 'Lỗi server khi tải kế hoạch KPI' });
   }
 };
+
+// Tạo mới kế hoạch
 exports.createMyPlan = async (req, res) => {
   const transaction = await db.sequelize.transaction();
   try {
@@ -69,16 +57,13 @@ exports.createMyPlan = async (req, res) => {
     const { month, year, items } = req.body;
 
     if (!month || !year || !Array.isArray(items) || items.length === 0) {
-      await transaction.rollback();
       return res.status(400).json({ error: "Thiếu dữ liệu kế hoạch." });
     }
 
     const existingPlan = await db.KpiPlan.findOne({
-      where: { employee_id: userId, month, year },
-      transaction
+      where: { employee_id: userId, month, year }
     });
     if (existingPlan) {
-      await transaction.rollback();
       return res.status(409).json({ error: 'Kế hoạch đã tồn tại cho kỳ này.' });
     }
 
@@ -90,26 +75,24 @@ exports.createMyPlan = async (req, res) => {
       final_score: 0,
     }, { transaction });
 
-    for (const item of items) {
-      await db.KpiPlanItem.create({
+    // CẢI TIỆN: Dùng bulkCreate để tối ưu hiệu năng
+    const itemPayload = items.map(item => ({
         plan_id: newPlan.id,
         name: item.name,
         weight: item.weight,
-        self_score: 0,
-        manager_score: 0,
-        director_score: 0,
-      }, { transaction });
-    }
+    }));
+    await db.KpiPlanItem.bulkCreate(itemPayload, { transaction });
 
     await transaction.commit();
-    res.json({ message: 'Tạo kế hoạch thành công!', planId: newPlan.id });
+    res.status(201).json({ message: 'Tạo kế hoạch thành công!', planId: newPlan.id });
   } catch (err) {
-    if (transaction) await transaction.rollback();
+    await transaction.rollback();
     console.error("Lỗi createMyPlan:", err);
     res.status(500).json({ error: 'Lỗi server khi tạo kế hoạch' });
   }
 };
 
+// Cập nhật các mục tiêu trong kế hoạch
 exports.updateMyPlan = async (req, res) => {
   const transaction = await db.sequelize.transaction();
   try {
@@ -117,18 +100,25 @@ exports.updateMyPlan = async (req, res) => {
     const { planId, items } = req.body;
 
     if (!planId || !Array.isArray(items)) {
-      await transaction.rollback();
       return res.status(400).json({ error: 'Thiếu planId hoặc dữ liệu cập nhật.' });
     }
     
+    // CẢI TIỆN: Thêm kiểm tra quyền sở hữu
+    const plan = await db.KpiPlan.findByPk(planId);
+    if (!plan || plan.employee_id !== userId) {
+        return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa kế hoạch này.'});
+    }
+    if (plan.status !== 'Mới tạo') {
+        return res.status(403).json({ error: 'Chỉ có thể chỉnh sửa kế hoạch ở trạng thái "Mới tạo".'});
+    }
+
     for (const item of items) {
-      await db.KpiPlanItem.update(
-        {
-          name: item.name,
-          weight: item.weight,
-        },
-        { where: { id: item.id, plan_id: planId }, transaction }
-      );
+      if (item.id) { // Chỉ cập nhật item đã có
+        await db.KpiPlanItem.update(
+          { name: item.name, weight: item.weight },
+          { where: { id: item.id, plan_id: planId }, transaction }
+        );
+      }
     }
     
     await transaction.commit();
@@ -141,6 +131,7 @@ exports.updateMyPlan = async (req, res) => {
   }
 };
 
+// Nộp điểm đánh giá và chuyển trạng thái
 exports.submitAssessment = async (req, res) => {
   const transaction = await db.sequelize.transaction();
   try {
@@ -149,63 +140,57 @@ exports.submitAssessment = async (req, res) => {
 
       const plan = await db.KpiPlan.findByPk(planId, { transaction });
       if (!plan) {
-          await transaction.rollback();
           return res.status(404).json({ error: 'Kế hoạch không tồn tại.' });
       }
       
-      // --- Logic xác định trạng thái mới ---
       let nextStatus = '';
-      if (['NhanvienCM', 'Phophong', 'Truongphong', 'PhoDV', 'Admin'].includes(userRole)) {
-          // Sau khi nhân viên nộp điểm, trạng thái chuyển sang Chờ TĐV chấm
+      if (['NhanvienCM', 'Phophong', 'Truongphong', 'PhoDV'].includes(userRole)) {
           nextStatus = 'Chờ TĐV chấm';
       } else if (userRole === 'TruongDonVi') {
-          // Sau khi Trưởng đơn vị chấm, trạng thái chuyển sang Chờ TGĐ chấm
           nextStatus = 'Chờ TGĐ chấm';
       } else if (userRole === 'TongGiamDoc' || userRole === 'Admin') {
-          // Sau khi TGĐ/Admin chấm, trạng thái hoàn tất
           nextStatus = 'Hoàn thành';
       } else {
-          await transaction.rollback();
           return res.status(403).json({ error: 'Vai trò không hợp lệ.' });
       }
 
-      // --- Logic cập nhật điểm số và trạng thái ---
       for (const item of items) {
           const updateData = {};
-          // Xác định trường dữ liệu cần cập nhật dựa trên vai trò
-          if (['NhanvienCM', 'Phophong', 'Truongphong', 'PhoDV'].includes(userRole)) {
+          if (userRole.startsWith('Nhanvien') || userRole.includes('phong') || userRole.includes('PhoDV')) {
               updateData.self_score = item.self_score;
           } else if (userRole === 'TruongDonVi') {
               updateData.manager_score = item.manager_score;
           } else if (userRole === 'TongGiamDoc' || userRole === 'Admin') {
               updateData.director_score = item.director_score;
           }
-
-          await db.KpiPlanItem.update(
-              updateData,
-              { where: { id: item.id }, transaction }
-          );
+          if (Object.keys(updateData).length > 0) {
+            await db.KpiPlanItem.update(updateData, { where: { id: item.id }, transaction });
+          }
       }
       
-      // Cập nhật trạng thái và final_score cho kế hoạch chính
       plan.status = nextStatus;
       
-
       if (nextStatus === 'Hoàn thành') {
           const allItems = await db.KpiPlanItem.findAll({ where: { plan_id: planId }, transaction });
           const employeeBeingRated = await db.Employee.findByPk(plan.employee_id);
           
-          const selfScoreSum = allItems.reduce((sum, item) => sum + (Number(item.self_score) || 0), 0);
-          const managerScoreSum = allItems.reduce((sum, item) => sum + (Number(item.manager_score) || 0), 0);
-          const directorScoreSum = allItems.reduce((sum, item) => sum + (Number(item.director_score) || 0), 0);
-
-          let finalScore = 0;
-          if (employeeBeingRated.role === 'TruongDonVi') {
-              finalScore = (managerScoreSum * 0.3) + (directorScoreSum * 0.7);
-          } else {
-              finalScore = (selfScoreSum * 0.3) + (managerScoreSum * 0.4) + (directorScoreSum * 0.3);
+          // SỬA LỖI: Tính lại final_score theo đúng công thức nhân với trọng số
+          let totalScore = 0;
+          for (const item of allItems) {
+              const weight = Number(item.weight) || 0;
+              const selfScore = (Number(item.self_score) || 0) * 10;
+              const managerScore = (Number(item.manager_score) || 0) * 10;
+              const directorScore = (Number(item.director_score) || 0) * 10;
+              
+              let definitiveScore = 0;
+              if (employeeBeingRated.role === 'TruongDonVi') {
+                  definitiveScore = (managerScore * 0.3) + (directorScore * 0.7);
+              } else {
+                  definitiveScore = (selfScore * 0.3) + (managerScore * 0.4) + (directorScore * 0.3);
+              }
+              totalScore += (definitiveScore * weight) / 100;
           }
-          plan.final_score = finalScore.toFixed(2);
+          plan.final_score = totalScore.toFixed(2);
       }
       
       await plan.save({ transaction });
@@ -219,67 +204,62 @@ exports.submitAssessment = async (req, res) => {
   }
 };
 
-// ✅ BỔ SUNG: Hàm bulkApprove
+// Duyệt hàng loạt
 exports.bulkApprove = async (req, res) => {
+  // SỬA LỖI & CẢI TIỆN: Toàn bộ logic được viết lại cho chính xác
   const transaction = await db.sequelize.transaction();
   try {
-    const { planIds, userRole } = req.body;
+    const { planIds } = req.body;
+    const userRole = req.user.role;
 
     if (!Array.isArray(planIds) || planIds.length === 0) {
-      await transaction.rollback();
       return res.status(400).json({ error: 'Thiếu danh sách kế hoạch cần duyệt.' });
     }
 
     let nextStatus = '';
-    let scoreFieldToUpdate = '';
-
     if (userRole === 'TruongDonVi') {
       nextStatus = 'Chờ TGĐ chấm';
-      scoreFieldToUpdate = 'manager_score';
     } else if (userRole === 'TongGiamDoc' || userRole === 'Admin') {
       nextStatus = 'Hoàn thành';
-      scoreFieldToUpdate = 'director_score';
     } else {
-      await transaction.rollback();
-      return res.status(403).json({ error: 'Vai trò của bạn không có quyền duyệt kế hoạch.' });
+      return res.status(403).json({ error: 'Vai trò của bạn không có quyền duyệt hàng loạt.' });
     }
 
-    for (const planId of planIds) {
-      const plan = await db.KpiPlan.findByPk(planId, { transaction });
-      if (!plan) continue;
-
-      const planItems = await db.KpiPlanItem.findAll({ where: { plan_id: planId }, transaction });
-      if (planItems.length === 0) continue;
-
-      const updates = {};
-      if (scoreFieldToUpdate === 'manager_score') {
-        updates.status = nextStatus;
-      } else if (scoreFieldToUpdate === 'director_score') {
-        updates.status = nextStatus;
-        // Tính final_score nếu là bước cuối
-        const selfScoreSum = planItems.reduce((sum, item) => sum + (Number(item.self_score) || 0), 0);
-        const managerScoreSum = planItems.reduce((sum, item) => sum + (Number(item.manager_score) || 0), 0);
-        const directorScoreSum = planItems.reduce((sum, item) => sum + (Number(item.director_score) || 0), 0);
-
-        let finalScore = 0;
-        const employeeBeingRated = await db.Employee.findByPk(plan.employee_id);
-        if (employeeBeingRated.role === 'TruongDonVi') {
-          finalScore = (managerScoreSum * 0.3) + (directorScoreSum * 0.7);
-        } else {
-          finalScore = (selfScoreSum * 0.3) + (managerScoreSum * 0.4) + (directorScoreSum * 0.3);
-        }
-        plan.final_score = finalScore.toFixed(2);
-        await plan.save({ transaction });
-      }
-
-      await db.KpiPlanItem.update(
+    await db.KpiPlan.update(
         { status: nextStatus },
-        { where: { plan_id: planId }, transaction }
-      );
+        { where: { id: { [Op.in]: planIds } }, transaction }
+    );
+    
+    // Nếu là bước cuối cùng (Hoàn thành), tính lại điểm cho tất cả các plan
+    if (nextStatus === 'Hoàn thành') {
+        for(const planId of planIds) {
+            // Có thể tách logic tính điểm ra một hàm riêng để tái sử dụng
+            const plan = await db.KpiPlan.findByPk(planId, {transaction});
+            const allItems = await db.KpiPlanItem.findAll({ where: { plan_id: planId }, transaction });
+            const employeeBeingRated = await db.Employee.findByPk(plan.employee_id, {transaction});
+            
+            let totalScore = 0;
+            for (const item of allItems) {
+                const weight = Number(item.weight) || 0;
+                const selfScore = (Number(item.self_score) || 0) * 10;
+                const managerScore = (Number(item.manager_score) || 0) * 10;
+                const directorScore = (Number(item.director_score) || 0) * 10;
+                
+                let definitiveScore = 0;
+                if (employeeBeingRated.role === 'TruongDonVi') {
+                    definitiveScore = (managerScore * 0.3) + (directorScore * 0.7);
+                } else {
+                    definitiveScore = (selfScore * 0.3) + (managerScore * 0.4) + (directorScore * 0.3);
+                }
+                totalScore += (definitiveScore * weight) / 100;
+            }
+            plan.final_score = totalScore.toFixed(2);
+            await plan.save({transaction});
+        }
     }
 
     await transaction.commit();
-    res.json({ message: 'Duyệt hàng loạt thành công!' });
+    res.json({ message: `Duyệt hàng loạt ${planIds.length} kế hoạch thành công!` });
   } catch (err) {
     await transaction.rollback();
     console.error('Lỗi bulkApprove:', err);

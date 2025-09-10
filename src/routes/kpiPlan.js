@@ -2,10 +2,10 @@
 const express = require('express');
 const router = express.Router();
 const kpiPlanController = require('../controllers/kpiPlanController');
-const { verifyToken, authorizeRoles } = require('../middleware/auth');
+const { protect, authorizeRoles } = require('../middleware/auth');
 
 // Tất cả các route đều yêu cầu đăng nhập
-router.use(verifyToken);
+router.use(protect);
 
 // === KPI CÁ NHÂN ===
 // Lấy kế hoạch của bản thân
@@ -19,7 +19,6 @@ router.put('/my-plan', kpiPlanController.updateMyPlan);
 
 // Nộp đánh giá KPI
 router.post('/my-plan/submit-assessment', kpiPlanController.submitAssessment);
-
 // Sắp xếp thứ tự KPI
 //router.put('/my-plan/reorder', kpiPlanController.reorderMyPlan);
 

@@ -1,5 +1,6 @@
 // server/services/employeeService.js
-const db = require('../config/db');
+const { pool, getPool }  = require('../config/db');
+const db = (typeof getPool === 'function') ? getPool() : pool;
 
 /**
  * Lấy danh sách nhân viên có phân trang, tìm kiếm, lọc và phân quyền.
@@ -27,10 +28,10 @@ const getAll = async (user, filters = {}) => {
     const params = [];
 
     // --- Logic Phân quyền ---
-    if (user.role === 'manager') {
+    if (user.role === 'TruongDonVi') {
         baseSql += ' AND e.company_id = ?';
         params.push(user.company_id);
-    } else if ((user.role === 'admin' || user.role === 'director') && companyId) {
+    } else if ((user.role === 'Admin' || user.role === 'TongGiamDoc') && companyId) {
         baseSql += ' AND e.company_id = ?';
         params.push(companyId);
     }
@@ -103,12 +104,12 @@ const getById = async (id) => {
     }
 
     // 2. Lấy danh sách hợp đồng (giả sử có bảng 'contracts')
-    const contractsSql = 'SELECT * FROM employee_contracts WHERE employee_id = ? ORDER BY start_date DESC';
+    const contractsSql = 'SELECT * FROM employee_contracts WHERE id = ? ORDER BY start_date DESC';
     const [contracts] = await db.query(contractsSql, [id]);
 
     // 3. Lấy danh sách quyết định (giả sử có bảng 'decisions')
     
-    const decisionsSql = 'SELECT * FROM employee_decisions WHERE employee_id = ? AND deleted_at IS NULL ORDER BY effective_date DESC';
+    const decisionsSql = 'SELECT * FROM employee_decisions WHERE id = ? AND deleted_at IS NULL ORDER BY effective_date DESC';
     const [decisions] = await db.query(decisionsSql, [id]);
     // 4. Gộp tất cả vào một object và trả về
     return {

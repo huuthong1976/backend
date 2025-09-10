@@ -1,0 +1,10 @@
+{
+  "development": {
+    "username": "root",
+    "password": "Thong7690@",
+    "database": "bsc_kpi",
+    "host": "localhost",
+    "dialect": "mysql"
+  }
+ 
+}

@@ -1,5 +1,6 @@
 // server/services/kpiLibraryService.js
-const db = require('../config/db');
+const { pool, getPool }  = require('../config/db');
+const db = (typeof getPool === 'function') ? getPool() : pool;
 const ExcelJS = require('exceljs');
 const xlsx = require('xlsx');
 const { KpiLibrary, BscPerspective, sequelize } = require('../models');

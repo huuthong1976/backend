@@ -27,9 +27,9 @@ const getKpiPlanDetails = async (req, res) => {
         const employee = await employeeService.getById(plan.employee_id); // Cần employeeService
 
         const canView = (
-            loggedInUser.role === 'admin' ||
-            loggedInUser.role === 'director' ||
-            (loggedInUser.role === 'manager' && loggedInUser.company_id === employee.company_id) ||
+            loggedInUser.role === 'Admin' ||
+            loggedInUser.role === 'TongGiamDoc' ||
+            (loggedInUser.role === 'TruongDonVi' && loggedInUser.company_id === employee.company_id) ||
             (loggedInUser.id === plan.employee_id)
         );
 
@@ -94,10 +94,10 @@ const submitKpiForReview = async (req, res) => {
                 break;
             case 'PENDING_REVIEW': // Manager duyệt
                 // Cần thêm logic kiểm tra user có phải là manager của nhân viên không
-                canSubmit = (loggedInUser.role === 'manager' && nextStatus === 'DIRECTOR_REVIEW');
+                canSubmit = (loggedInUser.role === 'TruongDonVi' && nextStatus === 'DIRECTOR_REVIEW');
                 break;
             case 'DIRECTOR_REVIEW': // TGĐ duyệt
-                canSubmit = (loggedInUser.role === 'director' && nextStatus === 'COMPLETED');
+                canSubmit = (loggedInUser.role === 'TongGiamDoc' && nextStatus === 'COMPLETED');
                 break;
         }
 

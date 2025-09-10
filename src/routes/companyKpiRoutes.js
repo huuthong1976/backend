@@ -6,10 +6,10 @@ const router = express.Router();
 const companyKpiController = require('../controllers/companyKpiController');
 
 // Import middleware để bảo vệ các route
-const { verifyToken, authorizeRoles } = require('../middleware/auth');
+const { protect, authorizeRoles } = require('../middleware/auth');
 
 // --- ÁP DỤNG MIDDLEWARE XÁC THỰC ---
-router.use(verifyToken);
+router.use(protect);
 
 
 // --- ĐỊNH NGHĨA CÁC ROUTE (ENDPOINT) ---

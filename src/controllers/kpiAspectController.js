@@ -1,82 +1,82 @@
 // server/controllers/kpiAspectController.js
 const kpiAspectService = require('../services/kpiAspectService');
 
-// server/controllers/kpiAspectsController.js
-const db = require('../config/db'); // đảm bảo module này có db.query(sql, params)
+/**
+ * @desc    Lấy danh sách ĐỊNH NGHĨA các khía cạnh BSC
+ * @route   GET /api/kpi-aspects
+ * @access  Private
+ */
+async function getBscPerspectives(req, res, next) {
+  try {
+    // ✅ Logic đúng: Gọi đến service để lấy danh sách định nghĩa từ bảng bsc_perspectives
+    const perspectives = await kpiAspectService.getBscPerspectives();
+    res.json(perspectives);
+  } catch (e) {
+    console.error('Error in getBscPerspectives:', e);
+    next(e); // Chuyển lỗi cho middleware xử lý
+  }
+}
 
-async function listPerspectives(_req, res, next) {
-    try {
-      const [rows] = await db.query(
-        `SELECT id, perspective_code, name
-           FROM bsc_perspectives
-           ORDER BY id ASC`
-      );
-      res.json(rows);
-    } catch (e) { next(e); }
-  }
-  
-  async function getPerspectiveWeights(req, res, next) {
-    try {
-      const companyId = Number(req.query.company_id);
-      const year = Number(req.query.year);
-      if (!companyId || !year) {
-        return res.status(400).json({ error: 'Thiếu company_id hoặc year' });
-      }
-      const [rows] = await db.query(
-        `SELECT perspective_id, weight_percentage
-           FROM bsc_weights
-          WHERE company_id = ? AND year = ?
-          ORDER BY perspective_id`,
-        [companyId, year]
-      );
-      res.json(rows);
-    } catch (e) { next(e); }
-  }
-  
-  async function savePerspectiveWeights(req, res, next) {
-    const conn = db.getConnection ? await db.getConnection() : db;
-    try {
-      const { company_id, year, weights } = req.body || {};
-      const companyId = Number(company_id);
-      const yr = Number(year);
-      if (!companyId || !yr || !Array.isArray(weights)) {
-        return res.status(400).json({ error: 'Dữ liệu không hợp lệ' });
-      }
-  
-      if (conn.beginTransaction) await conn.beginTransaction();
-  
-      await conn.query(
-        `DELETE FROM bsc_weights WHERE company_id = ? AND year = ?`,
-        [companyId, yr]
-      );
-  
-      if (weights.length) {
-        const vals = weights.map(w => [
-          companyId,
-          yr,
-          Number(w.perspective_id),
-          Number(w.weight_percentage || 0),
-        ]);
-        await conn.query(
-          `INSERT INTO bsc_weights
-             (company_id, year, perspective_id, weight_percentage)
-           VALUES ?`,
-          [vals]
-        );
-      }
-  
-      if (conn.commit) await conn.commit();
-      res.json({ ok: true });
-    } catch (e) {
-      if (conn.rollback) await conn.rollback();
-      next(e);
-    } finally {
-      if (conn.release) conn.release();
+/**
+ * @desc    Lấy tỷ trọng đã lưu của các khía cạnh theo đơn vị và năm
+ * @route   GET /api/kpi-aspects/weights
+ * @access  Private
+ */
+async function getBscWeights(req, res, next) {
+  try {
+    const companyId = parseInt(req.query.company_id, 10);
+    const year = parseInt(req.query.year, 10);
+
+    if (!companyId || !year) {
+      return res.status(400).json({ error: 'company_id và year là bắt buộc' });
     }
+    
+    // ✅ BƯỚC 1: Gọi service để lấy dữ liệu TỶ TRỌNG (đã sửa)
+    // Lưu ý: Tôi đã sửa lại hàm gọi service cho đúng với cấu trúc service của bạn
+    const weights = await kpiAspectService.getBscWeightsWithDefaults({ 
+      company_id: companyId, 
+      year: year 
+    });
+
+    // ✅ BƯỚC 2: Sắp xếp kết quả bằng JavaScript (an toàn và hiệu quả hơn)
+    weights.sort((a, b) => a.perspective_id - b.perspective_id);
+
+    res.json(weights);
+  } catch (e) {
+    console.error('Error in getBscWeights:', e);
+    next(e);
   }
-  
-  module.exports = {
-    listPerspectives,
-    getPerspectiveWeights,
-    savePerspectiveWeights,
-  };
+}
+
+/**
+ * @desc    Lưu tỷ trọng các khía cạnh
+ * @route   POST /api/kpi-aspects/weights 
+ * @access  Private
+ */
+async function savePerspectiveWeights(req, res, next) {
+  try {
+    const { company_id, year, weights } = req.body;
+    
+    // ✅ Logic đúng: Gọi hàm service đã viết đúng
+    await kpiAspectService.updateBscWeights(company_id, year, weights);
+    
+    res.json({ message: 'Cập nhật tỷ trọng thành công!' });
+  } catch (e) {
+    console.error('Error in savePerspectiveWeights:', e);
+    res.status(400).json({ error: e.message }); // Trả về lỗi từ service
+  }
+}
+
+// Các hàm không dùng tới
+async function create(req, res){ res.status(201).json({ ok: true }); }
+async function update(req, res){ res.json({ ok: true }); }
+async function remove(req, res){ res.json({ ok: true }); }
+
+module.exports = {
+  getBscPerspectives,
+  getBscWeights,
+  savePerspectiveWeights,
+  create,
+  update,
+  remove,
+};

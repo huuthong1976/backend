@@ -1,45 +1,12 @@
-// server/services/authService.js
+// server/controllers/authController.js
 
-const db = require('../models');
+const db = require('../models'); // Import Sequelize models
 const bcrypt = require('bcryptjs');
-const jwt =require('jsonwebtoken');
+const jwt = require('jsonwebtoken');
 const authService = require('../services/authService');
-// Finds a user by their username (or email)
-const findUserByUsername = async (username) => {
-    // Assuming your User model is named 'User' and has a 'username' field
-    return await db.User.findOne({ where: { username: username } });
-};
-
-// Compares the plaintext password with the stored hash
-const comparePassword = async (password, hashedPassword) => {
-    return await bcrypt.compare(password, hashedPassword);
-};
-
-// Generates JWT access and refresh tokens
-const generateTokens = (user) => {
-    // ✅ FIX: Ensure all necessary user info is in the payload
-    const payload = {
-        id: user.id,
-        role: user.role,
-        company_id: user.company_id, // This is the crucial line
-        // You might also want to include other identifiers if needed
-        // employee_id: user.employee_id 
-    };
-
-    const accessToken = jwt.sign(
-        payload,
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' } // Example: Access token expires in 1 hour
-    );
-
-    const refreshToken = jwt.sign(
-        { id: user.id }, // Refresh token payload can be simpler
-        process.env.JWT_REFRESH_SECRET,
-        { expiresIn: '7d' } // Example: Refresh token expires in 7 days
-    );
-
-    return { accessToken, refreshToken };
-};
+/**
+ * Xử lý đăng nhập của người dùng
+ */
 const login = async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -62,7 +29,7 @@ const login = async (req, res) => {
 
         res.status(200).json({ 
             message: 'Đăng nhập thành công!',
-            user: { id: user.id, fullName: user.full_name, role: user.role, company_id: user.company_id },
+            user: { id: user.id, fullName: user.full_name, role: user.role },
             ...tokens 
         });
 
@@ -92,10 +59,8 @@ const getCurrentUser = async (req, res) => {
         res.status(500).json({ error: "Server error" });
     }
 };
+// Đừng quên export hàm để router có thể sử dụng
 module.exports = {
-    findUserByUsername,
-    comparePassword,
-    generateTokens,
     login,
     getMe,
     getCurrentUser,

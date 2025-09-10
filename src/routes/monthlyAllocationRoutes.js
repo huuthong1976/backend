@@ -2,9 +2,9 @@
 const express = require('express');
 const router = express.Router();
 const monthlyAllocationController = require('../controllers/monthlyAllocationController');
-const { verifyToken, authorizeRoles } = require('../middleware/auth');
+const { protect, authorizeRoles } = require('../middleware/auth');
 
-router.use(verifyToken);
-router.post('/', authorizeRoles(['admin', 'manager']), monthlyAllocationController.allocateMonthlyTargets);
+router.use(protect);
+router.post('/', authorizeRoles(['Admin', 'TruongDonVi']), monthlyAllocationController.allocateMonthlyTargets);
 
 module.exports = router;

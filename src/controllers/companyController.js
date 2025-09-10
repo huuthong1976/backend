@@ -1,65 +1,68 @@
-// server/controllers/companyController.js
-const db = require('../config/db');
-const companyService = require('../services/companyService');
+// File đã sửa: server/controllers/companyController.js
 
+// ✅ Bước 1: Chỉ import đối tượng 'db' từ thư mục /models
+const db = require('../models');
+
+/**
+ * @desc    Lấy danh sách công ty dựa trên vai trò người dùng
+ * @route   GET /api/companies
+ */
 const listCompanies = async (req, res) => {
-    // Lấy thông tin người dùng đã được middleware verifyToken gắn vào
-    const user = req.user;
-
     try {
-        const baseSelect =
-        'SELECT id, company_code, company_name AS name, address, tax_code, phone, email, status FROM companies';
-        let query = baseSelect;
-        let params = [];
+        const user = req.user; // Lấy thông tin user từ middleware
+        let companies;
 
-        // Áp dụng logic phân quyền để xây dựng câu truy vấn
+        // ✅ Bước 2: Logic phân quyền của bạn bây giờ sẽ hoạt động
         if (user.role === 'Admin' || user.role === 'TongGiamDoc') {
-            // Admin hoặc Director có thể xem tất cả công ty
-            // Không cần thêm điều kiện WHERE
-       
+            // Admin/TGĐ thấy tất cả công ty
+            companies = await db.Company.findAll({ order: [['name', 'ASC']] });
+        } else if (user.role === 'TruongDonVi' && user.company_id) {
+            // Trưởng Đơn vị chỉ thấy công ty của họ
+            companies = await db.Company.findAll({ where: { id: user.company_id } });
         } else {
-            // Các vai trò khác (như Employee) cũng chỉ thấy công ty của họ
-            query += ' WHERE id = ?';
-            params.push(user.company_id);
+            // Các vai trò khác không thấy công ty nào
+            companies = [];
         }
 
-        // Thực thi câu truy vấn
-        const [companies] = await db.query(query, params);
         res.json(companies);
-
-    } catch (err) {
-        console.error('Lỗi khi lấy danh sách công ty:', err.message);
-        res.status(500).json({ error: 'Lỗi server' });
+    } catch (error) {
+        console.error('Error fetching companies:', error);
+        res.status(500).json({ error: 'Lỗi máy chủ' });
     }
 };
 
+/**
+ * @desc    Lấy thông tin chi tiết một công ty
+ * @route   GET /api/companies/:id
+ */
 const getCompany = async (req, res) => {
     try {
-        const company = await companyService.getById(req.params.id);
+        const company = await db.Company.findByPk(req.params.id);
         if (!company) {
             return res.status(404).json({ error: 'Không tìm thấy công ty.' });
         }
-        res.status(200).json(company);
+        res.json(company);
     } catch (error) {
-        console.error('Error in getCompany controller:', error);
-        res.status(500).json({ error: 'Lỗi server khi lấy thông tin công ty.' });
+        console.error('Error in getCompany:', error);
+        res.status(500).json({ error: 'Lỗi máy chủ' });
     }
 };
 
+/**
+ * @desc    Tạo công ty mới
+ * @route   POST /api/companies
+ */
 const createCompany = async (req, res) => {
     try {
-        // Thêm validation dữ liệu đầu vào
-        if (!req.body.company_name || !req.body.company_code) {
-            return res.status(400).json({ error: 'Vui lòng cung cấp đủ mã và tên công ty.' });
+        const { name, address /*, ...các trường khác */ } = req.body;
+        if (!name) {
+            return res.status(400).json({ error: 'Tên công ty là bắt buộc.' });
         }
-        const newCompany = await companyService.create(req.body);
+        const newCompany = await db.Company.create({ name, address });
         res.status(201).json(newCompany);
     } catch (error){
-        if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ error: 'Mã công ty đã tồn tại.' });
-        }
-        console.error('Error in createCompany controller:', error);
-        res.status(500).json({ error: 'Lỗi server khi tạo mới công ty.' });
+        console.error('Error in createCompany:', error);
+        res.status(500).json({ error: 'Lỗi máy chủ' });
     }
 };
 

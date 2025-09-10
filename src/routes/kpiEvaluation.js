@@ -2,11 +2,11 @@
 const express = require('express');
 const router = express.Router();
 const kpiEvaluationController = require('../controllers/kpiEvaluationController');
-const { verifyToken, authorizeRoles } = require('../middleware/auth');
+const { protect, authorizeRoles } = require('../middleware/auth');
 
 // Áp dụng middleware xác thực cho tất cả các route trong file này
 // Mọi request đến đây đều phải có token hợp lệ
-router.use(verifyToken);
+router.use(protect);
 
 /**
  * @route   GET /api/kpi-evaluation/:planId
