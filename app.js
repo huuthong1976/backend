@@ -27,18 +27,38 @@ const timekeepingRoutes = require('./src/routes/timekeeping')
 // Khởi tạo ứng dụng Express
 const app = express();
 
-const ALLOW_ORIGINS = [
-  "https://thoidaiso.info.vn",
-  "https://huuthong1976.github.io",                   // trang profile
-  "https://huuthong1976.github.io/frontend",  // nếu dùng project pages
+const defaultOrigins = [
+  'http://localhost:3000',
+  'http://localhost:8080',
+  // GitHub Pages (không dùng domain riêng)
+  'https://huuthong1976.github.io',
+  'https://huuthong1976.github.io/frontend',
+  // Domain riêng (nếu dùng)
+  'https://thoidaiso.info.vn',
 ];
-// --- CẤU HÌNH MIDDLEWARE ---
+
+// Cho phép truyền thêm origin qua biến môi trường (phân tách bằng dấu phẩy)
+const extraOrigins = (process.env.FRONTEND_ORIGINS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+const ALLOW_ORIGINS = Array.from(new Set([...defaultOrigins, ...extraOrigins]));
+
+// Nếu bạn đăng nhập bằng cookie/Session phía server qua HTTPS (Railway có proxy)
+app.set('trust proxy', 1);
+
 app.use(cors({
-    origin:ALLOW_ORIGINS,
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  }));
+  origin: function (origin, cb) {
+    // Cho phép request không có Origin (ví dụ curl/healthcheck)
+    if (!origin) return cb(null, true);
+    if (ALLOW_ORIGINS.includes(origin)) return cb(null, true);
+    return cb(new Error('Not allowed by CORS: ' + origin), false);
+  },
+  credentials: true,
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); 
 
@@ -49,7 +69,9 @@ app.use('/api/auth', authRoutes);
 app.get('/api/health', (req, res) => {
     res.json({ ok: true });
   });
-
+  app.get('/health', (req, res) => {
+    res.json({ ok: true });
+  });
 app.use('/api/employees', employeeRoutes);
 app.use('/api/kpi-evaluation', kpiEvaluationRoutes);
 app.use('/api/company-kpi', companyKpiRoutes);
