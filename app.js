@@ -30,7 +30,7 @@ const app = express();
 
 // --- CẤU HÌNH MIDDLEWARE ---
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://localhost:8080'],
+    origin: ['https://frontend-nine-tawny-93.vercel.app'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
     methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
