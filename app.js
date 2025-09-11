@@ -27,10 +27,14 @@ const timekeepingRoutes = require('./src/routes/timekeeping')
 // Khởi tạo ứng dụng Express
 const app = express();
 
-
+const ALLOW_ORIGINS = [
+  "https://thoidaiso.info.vn",
+  "https://huuthong1976.github.io",                   // trang profile
+  "https://huuthong1976.github.io/frontend",  // nếu dùng project pages
+];
 // --- CẤU HÌNH MIDDLEWARE ---
 app.use(cors({
-    origin: ['https://frontend-nine-tawny-93.vercel.app'],
+    origin:ALLOW_ORIGINS,
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
     methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
