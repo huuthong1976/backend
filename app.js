@@ -24,7 +24,7 @@ const userRoutes = require('./src/routes/users');
 const profileRoutes = require('./src/routes/profile');
 const positionRoutes = require('./src/routes/positions');
 const timekeepingRoutes = require('./src/routes/timekeeping');
-const { protect } = require('./middleware/auth');
+const { protect } = require('./src/middleware/auth');
 
 if (!process.env.JWT_SECRET) {
   console.warn('[WARN] JWT_SECRET is missing — login will fail');
