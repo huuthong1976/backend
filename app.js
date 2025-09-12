@@ -24,6 +24,7 @@ const userRoutes = require('./src/routes/users');
 const profileRoutes = require('./src/routes/profile');
 const positionRoutes = require('./src/routes/positions');
 const timekeepingRoutes = require('./src/routes/timekeeping');
+const { protect } = require('./middleware/auth');
 
 if (!process.env.JWT_SECRET) {
   console.warn('[WARN] JWT_SECRET is missing — login will fail');
@@ -74,7 +75,7 @@ app.use('/api/company-kpi', companyKpiRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/companies', companyRoutes);
-app.use('/api/kpi-library', kpiLibraryRoutes);
+app.use('/api/kpi-library', protect, kpiLibraryRoutes);
 app.use('/api/company-kpi-results', companyKpiResultsRoutes);
 app.use('/api/monthly-allocations', monthlyAllocationRoutes);
 app.use('/api/kpi-aspects', kpiAspectsRoutes);
