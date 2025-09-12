@@ -25,6 +25,9 @@ const profileRoutes = require('./src/routes/profile');
 const positionRoutes = require('./src/routes/positions');
 const timekeepingRoutes = require('./src/routes/timekeeping');
 
+if (!process.env.JWT_SECRET) {
+  console.warn('[WARN] JWT_SECRET is missing — login will fail');
+ }
 const app = express();
 
 // --- CORS ---
