@@ -22,17 +22,16 @@ const comparePassword = (plain, hash) =>
   bcrypt.compare(plain || '', hash || '');
 
 function generateTokens(user) {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error('Missing JWT_SECRET');
+  const company_id = user.companyId ?? user.company_id ?? null;
+  const payload = { id: user.id, role: user.role, company_id };
 
-  const payload = { id: user.id, role: user.role, company_id: user.companyId ?? null };
   const accessToken = jwt.sign(
     payload,
-    secret,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN || '2h' }
   );
 
-  // Trả thêm 'token' cho UI cũ nếu đang đọc key này
+  // Giữ tương thích UI cũ
   return { accessToken, token: accessToken };
 }
 
