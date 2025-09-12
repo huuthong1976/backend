@@ -1,76 +1,70 @@
 // server/controllers/kpiAspectController.js
 const kpiAspectService = require('../services/kpiAspectService');
 
-/**
- * @desc    Lấy danh sách ĐỊNH NGHĨA các khía cạnh BSC
- * @route   GET /api/kpi-aspects
- * @access  Private
+/** GET /api/kpi-aspects
+ *  Trả danh sách khía cạnh BSC (định nghĩa), luôn 200 + JSON
  */
 async function getBscPerspectives(req, res, next) {
   try {
-    // ✅ Logic đúng: Gọi đến service để lấy danh sách định nghĩa từ bảng bsc_perspectives
     const perspectives = await kpiAspectService.getBscPerspectives();
-    res.json(perspectives);
+    return res.status(200).json(perspectives || []);
   } catch (e) {
     console.error('Error in getBscPerspectives:', e);
-    next(e); // Chuyển lỗi cho middleware xử lý
+    return next(e);
   }
 }
 
-/**
- * @desc    Lấy tỷ trọng đã lưu của các khía cạnh theo đơn vị và năm
- * @route   GET /api/kpi-aspects/weights
- * @access  Private
+/** GET /api/kpi-aspects/weights?company_id=&year=
+ *  Trả tỷ trọng theo đơn vị + năm (đã ghép default nếu chưa có)
  */
 async function getBscWeights(req, res, next) {
   try {
-    const companyId = parseInt(req.query.company_id, 10);
-    const year = parseInt(req.query.year, 10);
+    const companyId =
+      parseInt(req.query.company_id, 10) ||
+      parseInt(req.user?.company_id, 10) ||
+      null;
+    const year = parseInt(req.query.year, 10) || new Date().getFullYear();
 
-    if (!companyId || !year) {
-      return res.status(400).json({ error: 'company_id và year là bắt buộc' });
+    if (!companyId) {
+      return res.status(400).json({ error: 'company_id là bắt buộc.' });
     }
-    
-    // ✅ BƯỚC 1: Gọi service để lấy dữ liệu TỶ TRỌNG (đã sửa)
-    // Lưu ý: Tôi đã sửa lại hàm gọi service cho đúng với cấu trúc service của bạn
-    const weights = await kpiAspectService.getBscWeightsWithDefaults({ 
-      company_id: companyId, 
-      year: year 
+
+    const weights = await kpiAspectService.getBscWeightsWithDefaults({
+      company_id: companyId,
+      year,
     });
 
-    // ✅ BƯỚC 2: Sắp xếp kết quả bằng JavaScript (an toàn và hiệu quả hơn)
-    weights.sort((a, b) => a.perspective_id - b.perspective_id);
-
-    res.json(weights);
+    (weights || []).sort((a, b) => (a.perspective_id || 0) - (b.perspective_id || 0));
+    return res.status(200).json(weights || []);
   } catch (e) {
     console.error('Error in getBscWeights:', e);
-    next(e);
+    return next(e);
   }
 }
 
-/**
- * @desc    Lưu tỷ trọng các khía cạnh
- * @route   POST /api/kpi-aspects/weights 
- * @access  Private
+/** POST /api/kpi-aspects/weights
+ *  Body: { company_id, year, weights: [{perspective_id, weight}, ...] }
  */
 async function savePerspectiveWeights(req, res, next) {
   try {
-    const { company_id, year, weights } = req.body;
-    
-    // ✅ Logic đúng: Gọi hàm service đã viết đúng
+    const { company_id, year, weights } = req.body || {};
+    if (!company_id || !year || !Array.isArray(weights)) {
+      return res.status(400).json({ error: 'company_id, year và weights là bắt buộc.' });
+    }
+
     await kpiAspectService.updateBscWeights(company_id, year, weights);
-    
-    res.json({ message: 'Cập nhật tỷ trọng thành công!' });
+    return res.status(200).json({ message: 'Cập nhật tỷ trọng thành công!' });
   } catch (e) {
     console.error('Error in savePerspectiveWeights:', e);
-    res.status(400).json({ error: e.message }); // Trả về lỗi từ service
+    // Trả lỗi có thông điệp cụ thể từ service nếu có
+    return res.status(400).json({ error: e.message || 'Không thể cập nhật tỷ trọng.' });
   }
 }
 
-// Các hàm không dùng tới
-async function create(req, res){ res.status(201).json({ ok: true }); }
-async function update(req, res){ res.json({ ok: true }); }
-async function remove(req, res){ res.json({ ok: true }); }
+// Giữ nguyên các placeholder để không phá interface hiện có
+async function create(req, res) { return res.status(201).json({ ok: true }); }
+async function update(req, res) { return res.status(200).json({ ok: true }); }
+async function remove(req, res) { return res.status(200).json({ ok: true }); }
 
 module.exports = {
   getBscPerspectives,
