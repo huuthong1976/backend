@@ -2,59 +2,76 @@
 const jwt = require('jsonwebtoken');
 
 /**
- * Middleware cơ bản: Chỉ kiểm tra token có hợp lệ hay không.
- * Dùng cho các API mà bất kỳ người dùng nào đã đăng nhập cũng có thể gọi.
+ * Lấy token từ request:
+ * - Authorization: Bearer <token>
+ * - (tuỳ chọn) cookie: accessToken / token
  */
-const protect = async (req, res, next) => {
+function extractToken(req) {
+  const h = req.headers.authorization || req.headers.Authorization || '';
+  if (h.startsWith('Bearer ')) {
+    const t = h.slice(7).trim();
+    if (t && t !== 'null' && t !== 'undefined') return t;
+  }
+  // Bật nếu bạn muốn lấy từ cookie
+  if (req.cookies) {
+    if (req.cookies.accessToken) return req.cookies.accessToken;
+    if (req.cookies.token) return req.cookies.token;
+  }
+  return null;
+}
+
+/**
+ * Middleware xác thực cơ bản:
+ * - Verify JWT
+ * - Gắn req.user và req.companyId
+ */
+const protect = (req, res, next) => {
   try {
-    let token;
+    // Bỏ qua preflight
+    if (req.method === 'OPTIONS') return next();
 
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
-    }
-
+    const token = extractToken(req);
     if (!token) {
-      return res.status(401).json({ error: 'Yêu cầu token để xác thực.' });
+      return res.status(401).json({ error: 'Thiếu token xác thực (Bearer token).' });
     }
-    
-    // ... logic xác thực token của bạn ...
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Gắn user vào request và đi tiếp
-    req.user = decoded; // Hoặc thông tin user lấy từ DB
-    next();
 
-  } catch (error) {
-    // Dòng 29 bị lỗi của bạn nằm ở đây
-    return res.status(401).json({ error: 'Token không hợp lệ hoặc đã hết hạn.' });
+    if (!process.env.JWT_SECRET) {
+      console.warn('[WARN] JWT_SECRET chưa được cấu hình - không thể xác thực JWT.');
+      return res.status(500).json({ error: 'Máy chủ thiếu cấu hình JWT.' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // decoded nên chứa: { id, role, company_id, ... }
+    req.user = decoded || {};
+    req.companyId =
+      decoded?.company_id ??
+      decoded?.companyId ??
+      null;
+
+    return next();
+  } catch (err) {
+    if (err?.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token đã hết hạn. Vui lòng đăng nhập lại.' });
+    }
+    return res.status(401).json({ error: 'Token không hợp lệ.' });
   }
 };
 
-  
-
 /**
- * Middleware nâng cao: Kiểm tra token VÀ vai trò được phép.
- * @param {string[]} allowedRoles - Mảng các vai trò được phép truy cập. 
- * Ví dụ: ['admin', 'manager']
+ * Middleware phân quyền theo vai trò
+ * @param {string|string[]} allowedRoles
  */
 const authorizeRoles = (allowedRoles) => {
-    return (req, res, next) => {
-        // Lấy thông tin người dùng đã được middleware verifyToken giải mã trước đó
-        const user = req.user;
+  const allow = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+  const allowLower = allow.filter(Boolean).map(r => String(r).toLowerCase());
 
-        // Kiểm tra xem vai trò của người dùng có nằm trong danh sách được phép không
-        if (!user || !user.role || !allowedRoles.map(role => role.toLowerCase()).includes(user.role.toLowerCase())) {
-            return res.status(403).json({ 
-                error: 'Bạn không có quyền thực hiện hành động này.' 
-            });
-        }
-
-        // Nếu có quyền, tiếp tục
-        next();
-    };
+  return (req, res, next) => {
+    const role = req.user?.role;
+    if (!role || !allowLower.includes(String(role).toLowerCase())) {
+      return res.status(403).json({ error: 'Bạn không có quyền thực hiện hành động này.' });
+    }
+    next();
+  };
 };
 
-module.exports = {
-    protect, 
-    authorizeRoles,
-};
+module.exports = { protect, authorizeRoles };
