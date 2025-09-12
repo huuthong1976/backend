@@ -1,103 +1,113 @@
-// server/controllers/kpiLibraryController.js
-const { pool, getPool } = require('../config/db');
-const db = (typeof getPool === 'function') ? getPool() : pool;
-const  kpiLibraryService = require('../services/kpiLibraryService'); 
+// src/controllers/kpiLibraryController.js
 const svc = require('../services/kpiLibraryService');
 
-const getKpiLibrary = async (req, res) => {
+function pickCompanyId(req) {
+  const raw = req.query.company_id ?? req.query.companyId ?? req.user?.company_id ?? req.user?.companyId;
+  const companyId = Number(raw);
+  if (!companyId || Number.isNaN(companyId)) return null;
+  return companyId;
+}
+
+exports.getKpiLibrary = async (req, res) => {
   try {
-    const { company_id } = req.query;
-    const data = await svc.getKpiLibrary({ company_id }); // danh sách PHẲNG, đã thừa kế
-    res.json(data);
+    const companyId = pickCompanyId(req);
+    if (!companyId) return res.status(400).json({ error: 'company_id is required' });
+
+    const data = await svc.getKpiLibrary({ company_id: companyId });
+    return res.json(data);
   } catch (err) {
-    console.error('[getKpiLibrary] ', err);
+    console.error('[kpiLibrary:getFlat]', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+exports.getKpiLibraryTree = async (req, res) => {
+  try {
+    const companyId = pickCompanyId(req);
+    if (!companyId) return res.status(400).json({ error: 'company_id is required' });
+
+    const data = await svc.getTreeByCompany(companyId);
+    return res.json(data);
+  } catch (err) {
+    console.error('[kpiLibrary:getTree]', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+exports.createKpi = async (req, res) => {
+  try {
+    const companyId = pickCompanyId(req) ?? Number(req.body.company_id ?? req.body.companyId);
+    if (!companyId) return res.status(400).json({ error: 'company_id is required' });
+
+    const payload = {
+      ...req.body,
+      company_id: companyId,
+    };
+    if (!payload.kpi_name || String(payload.kpi_name).trim() === '') {
+      return res.status(400).json({ error: 'kpi_name is required' });
+    }
+
+    const created = await svc.createKpi(payload);
+    return res.status(201).json(created);
+  } catch (err) {
+    console.error('[kpiLibrary:createKpi]', err);
+    return res.status(500).json({ error: err.message || 'Internal Server Error' });
+  }
+};
+
+exports.updateKpi = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Invalid id' });
+
+    const updated = await svc.updateKpi(id, req.body);
+    return res.json(updated);
+  } catch (err) {
+    console.error('[kpiLibrary:updateKpi]', err);
+    return res.status(500).json({ error: err.message || 'Internal Server Error' });
+  }
+};
+
+exports.deleteKpi = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Invalid id' });
+
+    const ok = await svc.deleteKpi(id);
+    if (!ok) return res.status(404).json({ error: 'KPI not found' });
+    return res.json({ message: 'Xóa KPI thành công!' });
+  } catch (err) {
+    console.error('[kpiLibrary:deleteKpi]', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+exports.exportKpis = async (req, res) => {
+  try {
+    const companyId = pickCompanyId(req);
+    if (!companyId) return res.status(400).json({ error: 'company_id is required' });
+
+    const workbook = await svc.exportKpis(companyId);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="ThuVien_KPI_${companyId}.xlsx"`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('[kpiLibrary:export]', err);
     res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 };
 
-const getKpiLibraryTree = async (req, res) => {
+exports.importKpis = async (req, res) => {
   try {
-    const { company_id } = req.query;
-    const data = await svc.getTreeByCompany(company_id); // CÂY, đã thừa kế
-    res.json(data);
+    const companyId = pickCompanyId(req);
+    if (!companyId) return res.status(400).json({ error: 'company_id is required' });
+    if (!req.file) return res.status(400).json({ error: 'Không tìm thấy file.' });
+
+    await svc.importKpis(req.file, companyId);
+    return res.json({ message: 'Nhập dữ liệu thành công.' });
   } catch (err) {
-    console.error('[getKpiLibraryTree] ', err);
+    console.error('[kpiLibrary:import]', err);
     res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
-};
-
-const createKpi = async (req, res) => {
-    try {
-      const kpiData = { ...req.body, company_id: req.body.company_id || req.user.company_id };
-  
-      console.log('API createKpi payload:', kpiData); // debug: kiểm tra body nhận được
-  
-      const newKpi = await kpiLibraryService.createKpi(kpiData); // gọi đúng tên
-      res.status(201).json(newKpi);
-    } catch (error) {
-      console.error('Lỗi khi tạo KPI mới:', error);
-      res.status(500).json({ error: error.message || 'Lỗi máy chủ hoặc dữ liệu không hợp lệ' });
-    }
-  };
-  
-  const updateKpi = async (req, res) => {
-    try {
-      const { id } = req.params;
-      const updatedKpi = await kpiLibraryService.updateKpi(id, req.body);
-      res.status(200).json(updatedKpi);
-    } catch (error) {
-      console.error('Lỗi khi cập nhật KPI:', error);
-      res.status(500).json({ error: error.message || 'Lỗi máy chủ' });
-    }
-  };
-  
-  const deleteKpi = async (req, res) => {
-    try {
-      const { id } = req.params;
-      await kpiLibraryService.deleteKpi(id);
-      res.status(200).json({ message: 'Xóa KPI thành công!' });
-    } catch (error) {
-      console.error('Lỗi khi xóa KPI:', error);
-      res.status(500).json({ error: 'Lỗi máy chủ' });
-    }
-  };
-
-const exportKpis = async (req, res) => {
-    try {
-        const { companyId } = req.query;
-        const workbook = await kpiLibraryService.exportKpis(companyId);
-        
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="ThuVien_KPI_${companyId}.xlsx"`);
-
-        await workbook.xlsx.write(res);
-        res.status(200).end();
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-};
-
-const importKpis = async (req, res) => {
-    try {
-        const { companyId } = req.query;
-        if (!req.file) {
-            return res.status(400).json({ error: 'Không tìm thấy file.' });
-        }
-        await kpiLibraryService.importKpis(req.file, companyId);
-        res.status(200).json({ message: 'Nhập dữ liệu thành công.' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-};
-
-// BỔ SUNG: Khối module.exports để xuất tất cả các hàm
-module.exports = {
-    getKpiLibrary,
-    getKpiLibraryTree,
-
-    createKpi,
-    updateKpi,
-    deleteKpi,
-    exportKpis,
-    importKpis,
 };
