@@ -1,62 +1,41 @@
-// server/services/authService.js
-const { pool, getPool } = require('../config/db');  // ĐẢM BẢO file này export pool/getPool
-const db = (typeof getPool === 'function') ? getPool() : pool;
+const { sequelize, Employee } = require('../models'); // lấy ORM từ models
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-/**
- * Tìm user theo username **hoặc** email.
- * Trả về null nếu không có.
- */
 async function findUserByUsername(usernameOrEmail) {
-  if (!db || typeof db.query !== 'function') {
-    throw new Error('DB pool not initialized (db.query is undefined)');
+  // Cách ORM (khuyến nghị)
+  const user = await Employee.findOne({
+    where: sequelize.where(
+      sequelize.fn('LOWER', sequelize.col('username')),
+      usernameOrEmail.toLowerCase()
+    ),
+  });
+
+  // Nếu muốn hỗ trợ email nữa:
+  if (!user) {
+    return await Employee.findOne({
+      where: sequelize.where(
+        sequelize.fn('LOWER', sequelize.col('email')),
+        usernameOrEmail.toLowerCase()
+      ),
+    });
   }
-  const sql = `
-    SELECT
-      id,
-      username,
-      email,
-      password_hash AS passwordHash,   -- alias để đồng bộ với controller
-      role,
-      employee_code,
-      company_id
-    FROM employees
-    WHERE username = ? OR email = ?
-    LIMIT 1
-  `;
-  const [rows] = await db.query(sql, [usernameOrEmail, usernameOrEmail]);
-  return rows && rows[0] ? rows[0] : null;
+  return user;
+  // (Hoặc raw: const [rows] = await sequelize.query('SELECT ...'); return rows[0] || null)
 }
 
-/** So khớp mật khẩu */
-const comparePassword = async (password, hashedPassword) => {
-  return bcrypt.compare(password, hashedPassword || '');
-};
+const comparePassword = (password, hashed) =>
+  bcrypt.compare(password || '', hashed || '');
 
-/** Tạo access token (8h mặc định, có thể đổi bằng JWT_EXPIRES_IN) */
-const generateTokens = (employee) => {
-  if (!process.env.JWT_SECRET) {
-    throw new Error('Missing JWT_SECRET');
-  }
-  const payload = {
-    id: employee.id,
-    role: employee.role,
-    company_id: employee.company_id,
-  };
-
-  // console.log('>>> login payload:', payload); // bật khi cần debug
-
+function generateTokens(user) {
+  if (!process.env.JWT_SECRET) throw new Error('Missing JWT_SECRET');
+  const payload = { id: user.id, role: user.role, company_id: user.companyId };
   const accessToken = jwt.sign(
     payload,
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
   );
   return { accessToken };
-};
+}
 
-module.exports = {
-  findUserByUsername,
-  comparePassword,
-  generateTokens,
-};
+module.exports = { findUserByUsername, comparePassword, generateTokens };
