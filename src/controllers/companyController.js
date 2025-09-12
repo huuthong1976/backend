@@ -1,49 +1,59 @@
-// server/controllers/companyController.js
-const { Op } = require('sequelize');
-const { Company } = require('../models'); // index.js export { Company, ... }
+// controllers/companyController.js
+const { Sequelize } = require('sequelize');
+const { Company } = require('../models');
 
-/**
- * GET /api/companies
- * Trả danh sách công ty theo vai trò:
- * - Admin/TongGiamDoc: thấy tất cả
- * - TruongDonVi: chỉ thấy công ty của mình
- * - Khác: []
- */
-async function listCompanies(req, res, next) {
+async function listCompanies(req, res) {
   try {
     const role = req.user?.role;
     const companyId = req.user?.company_id;
 
     let where = { deleted_at: null };
-    if (role === 'TruongDonVi' && companyId) {
-      where.id = companyId;
-    } else if (!['Admin', 'TongGiamDoc', 'TruongDonVi'].includes(role)) {
-      return res.status(200).json([]); // các vai trò khác không truy cập
+    if (role === 'TruongDonVi' && companyId) where.id = companyId;
+    else if (!['Admin', 'TongGiamDoc', 'TruongDonVi'].includes(role)) {
+      return res.status(200).json([]);
     }
 
-    const items = await Company.findAll({
+    // Tự phát hiện cột tên công ty trong model
+    const attrs = Company.rawAttributes || {};
+    const dbNameCol =
+      attrs.name?.field || (attrs.name ? 'name' : null) ||
+      attrs.company_name?.field || (attrs.company_name ? 'company_name' : null);
+
+    // Fallback nếu vẫn không tìm được
+    const nameCol = dbNameCol ? Sequelize.col(dbNameCol) : Sequelize.literal(`''`);
+
+    const rows = await Company.findAll({
       where,
       attributes: [
         'id',
-        ['name', 'company_name'], // FE dùng company_name
+        [nameCol, 'company_name'],
         'address',
       ],
-      order: [['name', 'ASC']],
+      order: dbNameCol ? [[Sequelize.col(dbNameCol), 'ASC']] : [['id', 'ASC']],
     });
 
-    return res.status(200).json(items);
+    return res.status(200).json(rows);
   } catch (e) {
     console.error('Error fetching companies:', e);
     return res.status(500).json({ error: 'Lỗi máy chủ' });
   }
 }
 
-/** GET /api/companies/:id */
-async function getCompany(req, res, next) {
+async function getCompany(req, res) {
   try {
+    const attrs = Company.rawAttributes || {};
+    const dbNameCol =
+      attrs.name?.field || (attrs.name ? 'name' : null) ||
+      attrs.company_name?.field || (attrs.company_name ? 'company_name' : null);
+    const nameCol = dbNameCol ? Sequelize.col(dbNameCol) : Sequelize.literal(`''`);
+
     const row = await Company.findOne({
       where: { id: req.params.id, deleted_at: null },
-      attributes: ['id', ['name', 'company_name'], 'address'],
+      attributes: [
+        'id',
+        [nameCol, 'company_name'],
+        'address',
+      ],
     });
     if (!row) return res.status(404).json({ error: 'Không tìm thấy công ty.' });
     return res.status(200).json(row);
