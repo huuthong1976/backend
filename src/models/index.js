@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { Sequelize, DataTypes } = require('sequelize');
+const Company = require('./company')(sequelize, Sequelize.DataTypes);
 
 const basename = path.basename(__filename);
 const env = process.env.NODE_ENV || 'production';
@@ -32,4 +33,4 @@ Object.keys(db).forEach(name => {
 
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
-module.exports = db;
+module.exports ={ sequelize, Sequelize, Company};
