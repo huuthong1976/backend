@@ -3,8 +3,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-const { protect } = require('./src/middleware/auth'); 
-// --- CÁC ROUTER CỦA ỨNG DỤNG ---
+
+// --- ROUTERS ---
 const authRoutes = require('./src/routes/auth');
 const employeeRoutes = require('./src/routes/employees');
 const kpiEvaluationRoutes = require('./src/routes/kpiEvaluation');
@@ -23,21 +23,20 @@ const apiRoutes = require('./src/routes/api');
 const userRoutes = require('./src/routes/users');
 const profileRoutes = require('./src/routes/profile');
 const positionRoutes = require('./src/routes/positions');
-const timekeepingRoutes = require('./src/routes/timekeeping')
-// Khởi tạo ứng dụng Express
+const timekeepingRoutes = require('./src/routes/timekeeping');
+
 const app = express();
 
+// --- CORS ---
 const defaultOrigins = [
   'http://localhost:3000',
   'http://localhost:8080',
-  // GitHub Pages (không dùng domain riêng)
   'https://huuthong1976.github.io',
   'https://huuthong1976.github.io/frontend',
-  // Domain riêng (nếu dùng)
   'https://thoidaiso.info.vn',
+  'https://www.thoidaiso.info.vn', 
 ];
 
-// Cho phép truyền thêm origin qua biến môi trường (phân tách bằng dấu phẩy)
 const extraOrigins = (process.env.FRONTEND_ORIGINS || '')
   .split(',')
   .map(s => s.trim())
@@ -45,13 +44,10 @@ const extraOrigins = (process.env.FRONTEND_ORIGINS || '')
 
 const ALLOW_ORIGINS = Array.from(new Set([...defaultOrigins, ...extraOrigins]));
 
-// Nếu bạn đăng nhập bằng cookie/Session phía server qua HTTPS (Railway có proxy)
 app.set('trust proxy', 1);
-
 app.use(cors({
-  origin: function (origin, cb) {
-    // Cho phép request không có Origin (ví dụ curl/healthcheck)
-    if (!origin) return cb(null, true);
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);            // cho phép curl/healthcheck
     if (ALLOW_ORIGINS.includes(origin)) return cb(null, true);
     return cb(new Error('Not allowed by CORS: ' + origin), false);
   },
@@ -59,19 +55,16 @@ app.use(cors({
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); 
+app.use(express.urlencoded({ extended: true }));
 
+// --- HEALTH ---
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.get('/health', (req, res) => res.json({ ok: true }));
 
-// --- ĐĂNG KÝ ROUTER ---
-// --- CÁC ROUTE CỤ THỂ ---
-app.use('/api/auth', authRoutes);
-app.get('/api/health', (req, res) => {
-    res.json({ ok: true });
-  });
-  app.get('/health', (req, res) => {
-    res.json({ ok: true });
-  });
+// --- ROUTES ---
+app.use('/api/auth', authRoutes);                     
 app.use('/api/employees', employeeRoutes);
 app.use('/api/kpi-evaluation', kpiEvaluationRoutes);
 app.use('/api/company-kpi', companyKpiRoutes);
@@ -84,22 +77,24 @@ app.use('/api/monthly-allocations', monthlyAllocationRoutes);
 app.use('/api/kpi-aspects', kpiAspectsRoutes);
 app.use('/api/kpi', kpiPlanRoutes);
 app.use('/api/unit-kpi', unitKpiRoutes);
-app.use('/api/payroll', payrollRoutes); 
+app.use('/api/payroll', payrollRoutes);
 app.use('/api/positions', positionRoutes);
 app.use('/api/profile', profileRoutes);
-app.use('/api/timekeeping', timekeepingRoutes );
-// --- CÁC ROUTE CHUNG CHUNG (đặt ở cuối) ---
-
+app.use('/api/timekeeping', timekeepingRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api', apiRoutes);
-// --- XỬ LÝ LỖI ---
-app.use((req, res, next) => {
-    res.status(404).json({ error: 'Endpoint not found' });
+
+// --- 404 ---
+app.use((req, res) => {
+  res.status(404).json({ error: 'Endpoint not found' });
 });
 
+// --- ERROR HANDLER (đặt CUỐI CÙNG) ---
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ error: 'Internal Server Error' });
+  console.error('ERROR', err);
+  const code = err.status || 500;
+  res.status(code).json({ message: code === 500 ? 'Server error' : err.message });
 });
-// --- XUẤT APP ĐỂ SERVER.JS SỬ DỤNG ---
+
 module.exports = app;
+
