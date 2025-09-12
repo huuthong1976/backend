@@ -1,102 +1,73 @@
-// server/services/authService.js
-
+// src/controllers/authController.js
 const db = require('../models');
-const bcrypt = require('bcryptjs');
-const jwt =require('jsonwebtoken');
 const authService = require('../services/authService');
-// Finds a user by their username (or email)
-const findUserByUsername = async (username) => {
-    // Assuming your User model is named 'User' and has a 'username' field
-    return await db.User.findOne({ where: { username: username } });
-};
 
-// Compares the plaintext password with the stored hash
-const comparePassword = async (password, hashedPassword) => {
-    return await bcrypt.compare(password, hashedPassword);
-};
+// NOTE:
+// - KHÔNG định nghĩa lại findUserByUsername/comparePassword/generateTokens ở đây.
+// - Chỉ gọi qua authService để thống nhất 1 nguồn logic.
 
-// Generates JWT access and refresh tokens
-const generateTokens = (user) => {
-    // ✅ FIX: Ensure all necessary user info is in the payload
-    const payload = {
-        id: user.id,
-        role: user.role,
-        company_id: user.company_id, // This is the crucial line
-        // You might also want to include other identifiers if needed
-        // employee_id: user.employee_id 
+exports.login = async (req, res, next) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Vui lòng cung cấp tên đăng nhập và mật khẩu.' });
+    }
+
+    // 1) Tìm user
+    const user = await authService.findUserByUsername(username);
+    if (!user) {
+      return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác.' });
+    }
+
+    // 2) So khớp mật khẩu (hỗ trợ cả passwordHash & password_hash)
+    const hashed = user.passwordHash ?? user.password_hash ?? '';
+    const ok = await authService.comparePassword(password, hashed);
+    if (!ok) {
+      return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác.' });
+    }
+
+    // 3) Tạo token qua service (có thể trả { accessToken } hoặc { accessToken, refreshToken })
+    const { accessToken, refreshToken } = authService.generateTokens(user);
+
+    // 4) Chuẩn hoá user trả về (giữ shape cũ để không vỡ UI)
+    const payloadUser = {
+      id: user.id,
+      fullName: user.fullName ?? user.full_name ?? user.username,
+      role: user.role,
+      company_id: user.companyId ?? user.company_id,
     };
 
-    const accessToken = jwt.sign(
-        payload,
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' } // Example: Access token expires in 1 hour
-    );
+    // Nếu hệ thống của bạn dùng cookie thay vì bearer token, bật dòng dưới:
+    // res.cookie('token', accessToken, { httpOnly: true, secure: true, sameSite: 'None', maxAge: 86400000 });
 
-    const refreshToken = jwt.sign(
-        { id: user.id }, // Refresh token payload can be simpler
-        process.env.JWT_REFRESH_SECRET,
-        { expiresIn: '7d' } // Example: Refresh token expires in 7 days
-    );
-
-    return { accessToken, refreshToken };
+    return res.status(200).json({
+      message: 'Đăng nhập thành công!',
+      user: payloadUser,
+      accessToken,
+      ...(refreshToken ? { refreshToken } : {}),
+    });
+  } catch (err) {
+    return next(err); // để global error handler xử lý thống nhất
+  }
 };
-const login = async (req, res) => {
-    try {
-        const { username, password } = req.body;
 
-        if (!username || !password) {
-            return res.status(400).json({ error: 'Vui lòng cung cấp tên đăng nhập và mật khẩu.' });
-        }
+exports.getMe = (req, res) => {
+  // Middleware verifyToken đã gắn user vào req.user
+  const { id, role, company_id, companyId } = req.user || {};
+  return res.status(200).json({ id, role, company_id: company_id ?? companyId });
+};
 
-        const user = await authService.findUserByUsername(username);
-        if (!user) {
-            return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác.' });
-        }
-
-        const isPasswordMatch = await authService.comparePassword(password, user.password_hash);
-        if (!isPasswordMatch) {
-            return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác.' });
-        }
-
-        const tokens = authService.generateTokens(user);
-
-        res.status(200).json({ 
-            message: 'Đăng nhập thành công!',
-            user: { id: user.id, fullName: user.full_name, role: user.role, company_id: user.company_id },
-            ...tokens 
-        });
-
-    } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ error: 'Lỗi server nội bộ.' });
+exports.getCurrentUser = async (req, res, next) => {
+  try {
+    // Một số token cũ có thể dùng employee_id, token mới dùng id → hỗ trợ cả hai
+    const employeeId = req.user?.employee_id ?? req.user?.id;
+    if (!employeeId) {
+      return res.status(400).json({ error: 'Thiếu employee id trong token.' });
     }
-};
-const getMe = async (req, res) => {
-    // Thông tin user đã được middleware verifyToken giải mã và gắn vào req.user
-    // Chúng ta chỉ cần trả về thông tin đó.
-    // Thường thì sẽ không muốn trả về các thông tin nhạy cảm.
-    const { id, role, company_id } = req.user;
-    res.status(200).json({ id, role, company_id });
-};
-const getCurrentUser = async (req, res) => {
-    // The verifyToken middleware already attached the user to the request.
-    // We just need to fetch their full profile and send it back.
-    try {
-        // req.user.employee_id comes from the decoded token
-        const userProfile = await db.Employee.findByPk(req.user.employee_id);
-        if (!userProfile) {
-            return res.status(404).json({ error: "User profile not found." });
-        }
-        res.status(200).json(userProfile);
-    } catch (error) {
-        res.status(500).json({ error: "Server error" });
-    }
-};
-module.exports = {
-    findUserByUsername,
-    comparePassword,
-    generateTokens,
-    login,
-    getMe,
-    getCurrentUser,
+    const profile = await db.Employee.findByPk(employeeId);
+    if (!profile) return res.status(404).json({ error: 'User profile not found.' });
+    return res.status(200).json(profile);
+  } catch (err) {
+    return next(err);
+  }
 };
