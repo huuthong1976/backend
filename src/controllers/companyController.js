@@ -5,31 +5,18 @@ const { Company } = require('../models');
 async function listCompanies(req, res) {
   try {
     const role = req.user?.role;
-    const companyId = req.user?.company_id;
+    const myCompanyId = req.user?.company_id;
 
-    let where = { deleted_at: null };
-    if (role === 'TruongDonVi' && companyId) where.id = companyId;
+    const where = { deleted_at: null };
+    if (role === 'TruongDonVi' && myCompanyId) where.id = myCompanyId;
     else if (!['Admin', 'TongGiamDoc', 'TruongDonVi'].includes(role)) {
       return res.status(200).json([]);
     }
 
-    // Tự phát hiện cột tên công ty trong model
-    const attrs = Company.rawAttributes || {};
-    const dbNameCol =
-      attrs.name?.field || (attrs.name ? 'name' : null) ||
-      attrs.company_name?.field || (attrs.company_name ? 'company_name' : null);
-
-    // Fallback nếu vẫn không tìm được
-    const nameCol = dbNameCol ? Sequelize.col(dbNameCol) : Sequelize.literal(`''`);
-
     const rows = await Company.findAll({
       where,
-      attributes: [
-        'id',
-        [nameCol, 'company_name'],
-        'address',
-      ],
-      order: dbNameCol ? [[Sequelize.col(dbNameCol), 'ASC']] : [['id', 'ASC']],
+      attributes: ['id', 'company_code', 'company_name', 'address', 'status'],
+      order: [['company_name', 'ASC']],
     });
 
     return res.status(200).json(rows);
@@ -41,19 +28,9 @@ async function listCompanies(req, res) {
 
 async function getCompany(req, res) {
   try {
-    const attrs = Company.rawAttributes || {};
-    const dbNameCol =
-      attrs.name?.field || (attrs.name ? 'name' : null) ||
-      attrs.company_name?.field || (attrs.company_name ? 'company_name' : null);
-    const nameCol = dbNameCol ? Sequelize.col(dbNameCol) : Sequelize.literal(`''`);
-
     const row = await Company.findOne({
       where: { id: req.params.id, deleted_at: null },
-      attributes: [
-        'id',
-        [nameCol, 'company_name'],
-        'address',
-      ],
+      attributes: ['id', 'company_code', 'company_name', 'address', 'tax_code', 'phone', 'email', 'status'],
     });
     if (!row) return res.status(404).json({ error: 'Không tìm thấy công ty.' });
     return res.status(200).json(row);
