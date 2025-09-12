@@ -1,42 +1,23 @@
-
-  // src/config/config.js
-require('dotenv').config();
-
-const common = {
-  dialect: 'mysql',
-  logging: false,
-  // Pool ổn định hơn khi deploy
-  pool: { max: 10, min: 0, acquire: 30000, idle: 10000 },
-  timezone: '+07:00' // nếu muốn timestamps theo VN
+// src/config/config.js
+const base = {
+  username: process.env.MYSQLUSER     || process.env.DB_USER     || 'root',
+  password: process.env.MYSQLPASSWORD || process.env.DB_PASSWORD || '',
+  database: process.env.MYSQLDATABASE || process.env.DB_DATABASE || 'railway',
+  host:     process.env.MYSQLHOST     || process.env.DB_HOST     || 'localhost',
+  port:     Number(process.env.MYSQLPORT || process.env.DB_PORT || 3306),
+  dialect:  'mysql',
+  logging:  false,
 };
 
-const maybeSsl =
-  process.env.DB_SSL === 'true'
-    ? { dialectOptions: { ssl: { require: true, rejectUnauthorized: false } } }
-    : {};
+
+const sslMode = process.env.DB_SSL; // 'strict'|'relaxed'|undefined
+const dialectOptions =
+  sslMode === 'strict'  ? { ssl: { rejectUnauthorized: true  } } :
+  sslMode === 'relaxed' ? { ssl: { rejectUnauthorized: false } } :
+  undefined;
 
 module.exports = {
-  development: {
-    ...common,
-    username: process.env.DB_USER || 'root',
-    password: process.env.DB_PASS || null,
-    database: process.env.DB_NAME || 'app_dev',
-    host: process.env.DB_HOST || '127.0.0.1',
-    port: Number(process.env.DB_PORT) || 3306,
-    ...maybeSsl
-  },
-  test: {
-    ...common,
-    username: process.env.DB_USER || 'root',
-    password: process.env.DB_PASS || null,
-    database: process.env.DB_NAME || 'app_test',
-    host: process.env.DB_HOST || '127.0.0.1',
-    port: Number(process.env.DB_PORT) || 3306,
-    ...maybeSsl
-  },
-   production: {
-    ...common,
-    use_env_variable: 'DATABASE_URL', // Bảo Sequelize tìm biến môi trường tên là DATABASE_URL
-    ...maybeSsl
-  }
+  development: { ...base, dialectOptions },
+  test:        { ...base, dialectOptions },
+  production:  { ...base, dialectOptions },
 };
