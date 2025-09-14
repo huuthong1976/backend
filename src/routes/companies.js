@@ -2,24 +2,26 @@
 const express = require('express');
 const router = express.Router();
 const companyController = require('../controllers/companyController');
-const { protect, authorizeRoles } = require('../../src/middleware/auth');
+const { protect, authorizeRoles } = require('../middleware/auth');
 
-// Áp dụng xác thực cho toàn bộ route
+// Áp dụng middleware xác thực cho tất cả các route trong file này
 router.use(protect);
 
-// Lấy danh sách công ty (đảm bảo controller có hàm này)
-router.get('/', companyController.listCompanies); // hoặc companyController.list / .summary
+// === ĐỊNH NGHĨA CÁC ROUTE ===
 
-// Lấy chi tiết 1 công ty (Admin + Trưởng đơn vị)
+// Lấy danh sách công ty (logic phân quyền sẽ nằm trong controller)
+router.get('/', companyController.listCompanies);
+//router.get('/', protect, companyController.list); 
+// Lấy chi tiết một công ty (chỉ Admin và Manager)
 router.get('/:id', authorizeRoles(['Admin', 'TruongDonVi']), companyController.getCompany);
 
-// Tạo mới (Admin)
+// Tạo mới công ty (chỉ Admin)
 router.post('/', authorizeRoles(['Admin']), companyController.createCompany);
 
-// Cập nhật (Admin)
+// Cập nhật công ty (chỉ Admin)
 router.put('/:id', authorizeRoles(['Admin']), companyController.updateCompany);
 
-// Xoá (Admin)
+// Xóa công ty (chỉ Admin)
 router.delete('/:id', authorizeRoles(['Admin']), companyController.deleteCompany);
 
 module.exports = router;

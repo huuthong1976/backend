@@ -1,15 +1,13 @@
 // server/routes/auth.js
-const express = require('express');
-const router = express.Router();
-const auth = require('../controllers/authController');
+const router = require('express').Router();
+const { login, getMe } = require('../controllers/authController');
+const { protect } = require('../middleware/auth');
 
-router.get('/health', (_req, res) => res.json({ ok: true }));
+// Đăng nhập: PUBLIC
+router.post('/login', login);
 
-// Đăng nhập
-router.post('/login', auth.login);
-
-// Nếu chưa dùng verifyToken, tạm mở không middleware để tránh undefined:
-router.get('/me', auth.getMe);
-router.get('/current-user', auth.getCurrentUser);
+// Lấy thông tin user hiện tại: PRIVATE
+router.get('/me', protect, getMe);
 
 module.exports = router;
+

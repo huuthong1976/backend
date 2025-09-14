@@ -1,44 +1,74 @@
 // server/controllers/dashboardController.js
-const dashboardService = require('../services/dashboardService');
+const db = require('../models');
 
-/**
- * Lấy dữ liệu tổng hợp cho trang Dashboard.
- * Hàm này đóng vai trò là "bộ não" chính, nhận request,
- * chuyển tiếp thông tin cần thiết xuống tầng service và trả về kết quả.
- */
-const getDashboardSummary = async (req, res) => {
-    try {
-        // --- BƯỚC 1: LẤY THÔNG TIN CẦN THIẾT ---
-        // req.user được thêm vào từ middleware xác thực, chứa thông tin (id, role, company_id)
-        // req.query chứa các tham số lọc từ URL (ví dụ: ?year=2025&companyId=1)
-        const user = req.user;
-        const filters = req.query;
+const hasAttr = (model, attr) =>
+  !!(model && model.rawAttributes && model.rawAttributes[attr]);
 
-        // --- BƯỚC 2: GỌI SERVICE ĐỂ LẤY DỮ LIỆU ---
-        // Truyền cả `user` và `filters` xuống tầng service.
-        // Tầng service sẽ tự quyết định phạm vi dữ liệu dựa trên các thông tin này.
-        const summaryData = await dashboardService.getSummaryData(user, filters);
-        
-        // --- BƯỚC 3: GỬI PHẢN HỒI THÀNH CÔNG ---
-        // Trả về dữ liệu đã được tổng hợp với mã trạng thái 200 OK.
-        res.status(200).json(summaryData);
-
-    } catch (error) {
-        // --- BƯỚC 4: XỬ LÝ LỖI TẬP TRUNG ---
-        // Ghi lại lỗi chi tiết ra console của server để gỡ lỗi
-        console.error('Error in getDashboardSummary controller:', error);
-        
-        // Trả về một phản hồi lỗi chung cho client với mã 500
-        res.status(500).json({ error: 'Lỗi server khi lấy dữ liệu dashboard.' });
-    }
+// Parse an toàn: chỉ trả về số nguyên hợp lệ, còn lại -> null
+const toInt = (v, fallback = null) => {
+  if (v === undefined || v === null) return fallback;
+  if (typeof v === 'number' && Number.isFinite(v)) return Math.trunc(v);
+  if (typeof v === 'string') {
+    const t = v.trim().toLowerCase();
+    if (t === '' || t === 'all' || t === '*' || t === 'null' || t === 'undefined') return fallback;
+    if (/^-?\d+$/.test(t)) return parseInt(t, 10);
+    return fallback;
+  }
+  return fallback;
 };
 
-// Bạn có thể bổ sung các hàm controller khác cho dashboard ở đây nếu cần trong tương lai
-// Ví dụ: Lấy dữ liệu chi tiết cho một biểu đồ cụ thể
-// const getKpiChartDetails = async (req, res) => { ... };
+const buildWhere = (model, { companyId, year, month }) => {
+  const where = {};
+  if (typeof companyId === 'number') {
+    if (hasAttr(model, 'company_id')) where.company_id = companyId;
+    else if (hasAttr(model, 'companyId')) where.companyId = companyId;
+  }
+  if (typeof year === 'number') {
+    if (hasAttr(model, 'year')) where.year = year;
+    else if (hasAttr(model, 'plan_year')) where.plan_year = year;
+    else if (hasAttr(model, 'target_year')) where.target_year = year;
+  }
+  if (typeof month === 'number') {
+    if (hasAttr(model, 'month')) where.month = month;
+    else if (hasAttr(model, 'plan_month')) where.plan_month = month;
+    else if (hasAttr(model, 'target_month')) where.target_month = month;
+  }
+  return where;
+};
 
+const safeCount = async (modelName, filters) => {
+  const model = db[modelName];
+  if (!model) return 0;
+  const where = buildWhere(model, filters);
+  const opts = {};
+  if (Object.keys(where).length) opts.where = where;
+  return await model.count(opts);
+};
 
-module.exports = {
-    getDashboardSummary,
-    // getKpiChartDetails,
+exports.getDashboardSummary = async (req, res) => {
+  try {
+    // Lấy companyId hợp lệ: ưu tiên query, fallback JWT; mặc định không filter
+    const userCompanyId = toInt(req?.user?.company_id, null);
+    const companyId = toInt(req.query.companyId, userCompanyId);
+
+    const now = new Date();
+    const year  = toInt(req.query.year,  now.getFullYear());
+    const month = toInt(req.query.month, now.getMonth() + 1);
+
+    const filters = { companyId, year, month };
+
+    const data = {
+      employees:       await safeCount('Employee',         filters),
+      departments:     await safeCount('Department',       filters),
+      kpiPlans:        await safeCount('KpiPlan',          filters),
+      unitKpiRegs:     await safeCount('CompanyKpi',       filters),
+      unitKpiResults:  await safeCount('CompanyKpiResult', filters),
+    };
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    return res.status(200).json({ ok: true, filters, data });
+  } catch (err) {
+    console.error('dashboard/summary error:', err);
+    return res.status(500).json({ ok: false, error: 'Failed to load dashboard summary' });
+  }
 };

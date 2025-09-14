@@ -1,22 +1,28 @@
-// src/db.js
-'use strict';
-const path = require('path');
-require('dotenv').config({
-  path: process.env.DOTENV_PATH || path.join(process.cwd(), '.env')
+const mysql = require('mysql2/promise');
+require('dotenv').config();
+
+const pool = mysql.createPool({
+  host: process.env.MYSQL_HOST || 'localhost',
+  user: process.env.MYSQL_USER || 'root',
+  password: process.env.MYSQL_PASSWORD || 'Thong7690@',
+  database: process.env.MYSQL_DB || 'bsc_kpi',
+  decimalNumbers: true, 
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
 });
-const { Sequelize } = require('sequelize');
-const configAll = require('./config');
 
-const env = process.env.NODE_ENV || 'development';
-const cfg = configAll[env];
+// Kiểm tra kết nối (không gây vòng lặp)
+(async () => {
+  try {
+    const conn = await pool.getConnection();
+    console.log('>>> DB connected');
+    conn.release();
+  } catch (err) {
+    console.error('DB connection error:', err.code || err.message || err);
+  }
+})();
 
-let sequelize;
-if (cfg.use_env_variable) {
-  const url = process.env[cfg.use_env_variable];
-  if (!url) throw new Error(`Thiếu biến môi trường ${cfg.use_env_variable}`);
-  sequelize = new Sequelize(url, cfg);
-} else {
-  sequelize = new Sequelize(cfg.database, cfg.username, cfg.password, cfg);
-}
+function getPool() { return pool; }
 
-module.exports = sequelize;
+module.exports = { pool, getPool };

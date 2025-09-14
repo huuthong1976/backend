@@ -1,103 +1,60 @@
-// src/controllers/authController.js
+// server/controllers/authController.js
 const db = require('../models');
-const authService = require('../services/authService');
-const bcrypt = require('bcryptjs'); // fallback nếu service chưa export compare
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
-// Helper: tìm user theo username/email, ưu tiên dùng service
-async function findUser(login) {
-  if (typeof authService.findUserByLogin === 'function') {
-    return authService.findUserByLogin(login);
-  }
-  if (typeof authService.findUserByUsername === 'function') {
-    return authService.findUserByUsername(login);
-  }
-  // Fallback cuối (không nên cần tới nếu service chuẩn):
-  return db.Employee.findOne({
-    where: db.sequelize.where(
-      db.sequelize.fn('LOWER', db.sequelize.col('username')),
-      String(login || '').toLowerCase()
-    ),
+const signJwt = (user) => {
+  const payload = { id: user.id, role: user.role, company_id: user.company_id };
+  return jwt.sign(payload, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   });
-}
+};
 
-// Helper: so khớp password, ưu tiên service
-async function comparePassword(plain, hash) {
-  if (typeof authService.comparePassword === 'function') {
-    return authService.comparePassword(plain, hash);
-  }
-  return bcrypt.compare(plain || '', hash || '');
-}
-
-// Helper: tạo token, ưu tiên service
-function makeTokens(user) {
-  if (typeof authService.generateTokens === 'function') {
-    // Nhiều UI cũ đọc key "token", service của bạn nên trả cả { accessToken, token }
-    return authService.generateTokens(user);
-  }
-  // Fallback an toàn nếu thiếu (yêu cầu JWT_SECRET – nên dùng service chuẩn)
-  throw new Error('generateTokens is not available from authService');
-}
-
-// POST /api/auth/login
-exports.login = async (req, res, next) => {
+exports.login = async (req, res) => {
   try {
-    const { username, password } = req.body || {};
-    if (!username || !password) {
+    const { username, password } = req.body;
+    if (!username || !password)
       return res.status(400).json({ error: 'Vui lòng cung cấp tên đăng nhập và mật khẩu.' });
-    }
 
-    const user = await findUser(username);
-    if (!user) {
+    // Nếu dùng paranoid và muốn bỏ qua user đã xóa mềm, giữ nguyên.
+    // Nếu cần đăng nhập cả user bị soft-delete: thêm { paranoid: false }
+    const user = await db.Employee.findOne({
+      where: { username },
+      // Không cần attributes hotfix nếu model đã tắt createdAt,
+      // nhưng có thể giữ cho chắc:
+      attributes: [
+        'id', 'full_name', 'email', 'role', 'company_id',
+        'employee_code', 'position_id',
+        ['password_hash', 'password'], // alias đảm bảo có dữ liệu cho bcrypt
+      ],
+    });
+
+    if (!user)
       return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác.' });
-    }
 
-    // Hỗ trợ cả alias camelCase và snake_case
-    const hashed = user.passwordHash ?? user.password_hash ?? '';
-    const ok = await comparePassword(password, hashed);
-    if (!ok) {
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok)
       return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác.' });
-    }
 
-    const { accessToken, token } = makeTokens(user);
-
-    // (tùy chọn) cập nhật thống kê đăng nhập
-    // await user.update({ lastLogin: new Date(), loginCount: (user.loginCount || 0) + 1 });
+    const token = signJwt(user);
 
     return res.status(200).json({
-      message: 'Đăng nhập thành công!',
+      token, // <-- Frontend đang chờ field này
       user: {
         id: user.id,
-        fullName: user.fullName ?? user.full_name ?? user.username,
+        fullName: user.full_name,
         role: user.role,
-        company_id: user.companyId ?? user.company_id ?? null,
+        company_id: user.company_id,
       },
-      accessToken,
-      token: token || accessToken, // giữ tương thích UI cũ
     });
   } catch (err) {
-    return next(err);
+    console.error('Login error:', err);
+    return res.status(500).json({ error: 'Lỗi server nội bộ.' });
   }
 };
 
-// GET /api/auth/me
-exports.getMe = (req, res) => {
-  const { id, role } = req.user || {};
-  const company_id = req.user?.company_id ?? req.user?.companyId ?? null;
+exports.getMe = async (req, res) => {
+  // yêu cầu middleware protect đã decode JWT và gắn req.user
+  const { id, role, company_id } = req.user || {};
   return res.status(200).json({ id, role, company_id });
-};
-
-// GET /api/auth/current-user
-exports.getCurrentUser = async (req, res, next) => {
-  try {
-    // Token mới dùng id; token cũ có thể là employee_id
-    const empId = req.user?.id ?? req.user?.employee_id;
-    if (!empId) return res.status(400).json({ error: 'Thiếu id trong token.' });
-
-    const profile = await db.Employee.findByPk(empId);
-    if (!profile) return res.status(404).json({ error: 'User profile not found.' });
-
-    return res.status(200).json(profile);
-  } catch (err) {
-    return next(err);
-  }
 };

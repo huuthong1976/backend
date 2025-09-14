@@ -1,24 +1,21 @@
+// server/models/employee.js
 const { Model } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
   class Employee extends Model {
     static associate(models) {
-      // Các quan hệ bạn đã có
-      if (models.Position) {
-        this.belongsTo(models.Position, { foreignKey: 'position_id', as: 'position' });
-      }
+      // 1 nhân viên thuộc 1 chức danh
+      this.belongsTo(models.Position, { foreignKey: 'position_id', as: 'position' });
+
+      // Trưởng đơn vị có nhiều nhân viên
       this.hasMany(models.Employee, { foreignKey: 'manager_id', as: 'subordinates' });
+
+      // Nhân viên có 1 quản lý
       this.belongsTo(models.Employee, { foreignKey: 'manager_id', as: 'manager' });
 
+      // Nếu bạn có KpiPlan:
       if (models.KpiPlan) {
         this.hasMany(models.KpiPlan, { foreignKey: 'employee_id', as: 'kpi_plans' });
-      }
-      // (tùy chọn) nếu có Department/Company models
-      if (models.Department) {
-        this.belongsTo(models.Department, { foreignKey: 'department_id', as: 'department' });
-      }
-      if (models.Company) {
-        this.belongsTo(models.Company, { foreignKey: 'company_id', as: 'company' });
       }
     }
   }
@@ -27,81 +24,83 @@ module.exports = (sequelize, DataTypes) => {
     {
       id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
 
-      employeeCode: { type: DataTypes.STRING(50), field: 'employee_code' },
-      fullName: { type: DataTypes.STRING(150), field: 'full_name', allowNull: false },
-
-      gender: { type: DataTypes.ENUM('Nam', 'Nữ', 'Khác') },
-      dob: { type: DataTypes.DATEONLY },
-
-      email: { type: DataTypes.STRING(100) },
-      phone: { type: DataTypes.STRING(20) },
-
-      departmentId: { type: DataTypes.INTEGER, field: 'department_id' },
-      companyId: { type: DataTypes.INTEGER, field: 'company_id', allowNull: false },
-      positionId: { type: DataTypes.INTEGER, field: 'position_id' },
-      managerId: { type: DataTypes.INTEGER, field: 'manager_id' },
-
-      startDate: { type: DataTypes.DATEONLY, field: 'start_date' },
-      status: { type: DataTypes.ENUM('Đang làm việc', 'Đã nghỉ việc') },
-
-      username: { type: DataTypes.STRING(100) },
-
-      // QUAN TRỌNG cho đăng nhập:
-      passwordHash: { type: DataTypes.STRING(255), field: 'password_hash' },
-
-      role: {
-        type: DataTypes.ENUM(
-          'Admin', 'TongGiamDoc', 'TruongDonVi', 'Truongphong',
-          'NhanVienCM', 'NhanVienKD', 'NhanVienPT', 'KeToan',
-          'NhanSu', 'PhoDV', 'Phophong'
-        )
+      // Các cột đăng nhập & phân quyền
+      username: { type: DataTypes.STRING(100), allowNull: true },
+      password: {                                     // alias để tiện dùng trong controller
+        type: DataTypes.STRING(255),
+        field: 'password_hash',
+        allowNull: true,
       },
+      role: { type: DataTypes.STRING(50), allowNull: true },
 
-      isActive: { type: DataTypes.BOOLEAN, field: 'is_active' },
-      avatarUrl: { type: DataTypes.STRING(255), field: 'avatar_url' },
+      // Thông tin chung
+      employee_code: { type: DataTypes.STRING(50), allowNull: true },
+      full_name: { type: DataTypes.STRING(150), allowNull: true },
+      email: { type: DataTypes.STRING(100), allowNull: true },
+      phone: { type: DataTypes.STRING(20), allowNull: true },
+      gender: { type: DataTypes.ENUM('Nam', 'Nữ', 'Khác'), allowNull: true },
+      dob: { type: DataTypes.DATEONLY, allowNull: true },
 
-      baseSalaryForInsurance: { type: DataTypes.DECIMAL(18, 2), field: 'base_salary_for_insurance' },
-      performanceSalaryBase: { type: DataTypes.DECIMAL(18, 2), field: 'performance_salary_base' },
-      totalSalary: { type: DataTypes.DECIMAL(18, 2), field: 'total_salary' },
-      p2Salary: { type: DataTypes.DECIMAL(18, 2), field: 'p2_salary' },
+      // Quan hệ tổ chức
+      department_id: { type: DataTypes.INTEGER, allowNull: true },
+      company_id: { type: DataTypes.INTEGER, allowNull: true },
+      position_id: { type: DataTypes.INTEGER, allowNull: true },
+      manager_id: { type: DataTypes.INTEGER, allowNull: true },
 
-      numDependents: { type: DataTypes.INTEGER, field: 'num_dependents' },
-      unionFee: { type: DataTypes.DECIMAL(18, 2), field: 'union_fee' },
+      // Trạng thái & hồ sơ
+      status: { type: DataTypes.ENUM('Đang làm việc', 'Đã nghỉ việc'), allowNull: true },
+      is_active: { type: DataTypes.BOOLEAN, allowNull: true },
+      avatar_url: { type: DataTypes.STRING(255), allowNull: true },
 
-      deletedAt: { type: DataTypes.DATE, field: 'deleted_at' },
-      deletedBy: { type: DataTypes.INTEGER, field: 'deleted_by' },
-      deletedFromIp: { type: DataTypes.STRING(45), field: 'deleted_from_ip' },
+      // Lương & BH
+      base_salary_for_insurance: { type: DataTypes.DECIMAL(18, 2), allowNull: true },
+      performance_salary_base: { type: DataTypes.DECIMAL(18, 2), allowNull: true },
+      total_salary: { type: DataTypes.DECIMAL(18, 2), allowNull: true },
+      p2_salary: { type: DataTypes.DECIMAL(18, 2), allowNull: true },
+      num_dependents: { type: DataTypes.INTEGER, allowNull: true },
+      union_fee: { type: DataTypes.DECIMAL(18, 2), allowNull: true },
 
-      twoFactorEnabled: { type: DataTypes.BOOLEAN, field: 'two_factor_enabled' },
-      twoFactorSecret: { type: DataTypes.TEXT, field: 'two_factor_secret' },
-      twoFactorBackupCodes: { type: DataTypes.TEXT, field: 'two_factor_backup_codes' },
+      // 2FA & OAuth
+      two_factor_enabled: { type: DataTypes.BOOLEAN, allowNull: true },
+      two_factor_secret: { type: DataTypes.TEXT, allowNull: true },
+      two_factor_backup_codes: { type: DataTypes.TEXT, allowNull: true },
+      google_id: { type: DataTypes.STRING(255), allowNull: true },
 
-      googleId: { type: DataTypes.STRING(255), field: 'google_id' },
+      // Nhật ký
+      last_login: { type: DataTypes.DATE, allowNull: true },
+      login_count: { type: DataTypes.INTEGER, allowNull: true },
+      password_updated_at: { type: DataTypes.DATE, allowNull: true },
 
-      lastLogin: { type: DataTypes.DATE, field: 'last_login' },
-      loginCount: { type: DataTypes.INTEGER, field: 'login_count' },
+      // Soft delete
+      deleted_at: { type: DataTypes.DATE, allowNull: true },
+      deleted_by: { type: DataTypes.INTEGER, allowNull: true },
+      deleted_from_ip: { type: DataTypes.STRING(45), allowNull: true },
 
-      passwordUpdatedAt: { type: DataTypes.DATE, field: 'password_updated_at' },
-      updatedAt: { type: DataTypes.DATE, field: 'updated_at' }
+      // Chỉ có updated_at (snake_case)
+      updated_at: { type: DataTypes.DATE, allowNull: true },
     },
     {
       sequelize,
       modelName: 'Employee',
       tableName: 'employees',
-      timestamps: false,              // bảng không dùng created_at/updated_at mặc định
-      defaultScope: {
-        // tránh trả về các secret nhạy cảm mặc định
-        attributes: { exclude: ['passwordHash', 'twoFactorSecret', 'twoFactorBackupCodes'] }
-      },
-      scopes: {
-        withSecret: {},               // dùng khi cần lấy passwordHash/2FA
-        active: { where: { isActive: true, deletedAt: null } }
-      },
+
+      // Bảng không có created_at → tắt createdAt, map updatedAt
+      timestamps: true,
+      createdAt: false,
+      updatedAt: 'updated_at',
+
+      // Bảng có deleted_at → bật paranoid để Sequelize tôn trọng soft-delete
+      paranoid: true,
+      deletedAt: 'deleted_at',
+
+      // Cột snake_case
+      underscored: true,
+
+      // (khuyến nghị) Index cho đăng nhập nhanh
       indexes: [
         { fields: ['username'] },
-        { fields: ['email'] },
-        { fields: ['company_id'] }
-      ]
+        { fields: ['company_id'] },
+      ],
     }
   );
 

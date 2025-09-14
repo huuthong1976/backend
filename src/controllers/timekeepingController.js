@@ -52,5 +52,24 @@ async function getAllTimesheets(req, res) {
     return res.status(500).json({ msg: error.message });
   }
 }
-
+async function getUnitTimesheets(req, res) {
+    try {
+      const { company_id } = req.user || {};
+      if (!company_id) {
+        return res.status(400).json({ msg: 'Thiếu company_id trong phiên đăng nhập.' });
+      }
+      const filters = {
+        year: req.query.year ? parseInt(req.query.year, 10) : undefined,
+        month: req.query.month ? parseInt(req.query.month, 10) : undefined,
+        employeeId: req.query.employeeId ? parseInt(req.query.employeeId, 10) : undefined,
+        // companyId sẽ bị server ép = company_id của manager, bảo toàn an ninh
+        companyId: company_id,
+      };
+      const timesheets = await timekeepingService.getAllTimesheetsWithFilters(filters);
+      return res.status(200).json(timesheets);
+    } catch (error) {
+      return res.status(500).json({ msg: error.message });
+    }
+}
 module.exports = { getMyTimesheet, checkIn, getAllTimesheets, checkOut };
+module.exports.getUnitTimesheets = getUnitTimesheets;

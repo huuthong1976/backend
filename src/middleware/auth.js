@@ -2,76 +2,96 @@
 const jwt = require('jsonwebtoken');
 
 /**
- * Lấy token từ request:
- * - Authorization: Bearer <token>
- * - (tuỳ chọn) cookie: accessToken / token
+ * Những đường public: KHÔNG yêu cầu token.
+ * Dùng includes thay vì startsWith để vẫn hoạt động nếu bạn mount ở /api, /v1, ...
  */
-function extractToken(req) {
-  const h = req.headers.authorization || req.headers.Authorization || '';
-  if (h.startsWith('Bearer ')) {
-    const t = h.slice(7).trim();
-    if (t && t !== 'null' && t !== 'undefined') return t;
-  }
-  // Bật nếu bạn muốn lấy từ cookie
-  if (req.cookies) {
-    if (req.cookies.accessToken) return req.cookies.accessToken;
-    if (req.cookies.token) return req.cookies.token;
-  }
-  return null;
+const PUBLIC_PATHS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/refresh',
+  '/auth/forgot',
+  '/health',
+  '/public/',       // mọi tài nguyên tĩnh public
+];
+
+/** Kiểm tra request có phải đường public hay không */
+function isPublicRequest(req) {
+  // Bỏ qua preflight CORS
+  if (req.method === 'OPTIONS') return true;
+
+  const url = (req.originalUrl || req.url || '').toLowerCase();
+  return PUBLIC_PATHS.some((p) => url.includes(p));
 }
 
 /**
- * Middleware xác thực cơ bản:
- * - Verify JWT
- * - Gắn req.user và req.companyId
+ * Middleware cơ bản: xác thực JWT, nhưng BỎ QUA các đường public.
+ * Giữ nguyên API export như file gốc.
  */
-const protect = (req, res, next) => {
+const protect = async (req, res, next) => {
   try {
-    // Bỏ qua preflight
-    if (req.method === 'OPTIONS') return next();
+    // Bỏ qua bảo vệ cho các đường public
+    if (isPublicRequest(req)) return next();
 
-    const token = extractToken(req);
+    let token;
+
+    // Ưu tiên: Authorization: Bearer <token>
+    const auth = req.headers.authorization || '';
+    if (auth.startsWith('Bearer ')) {
+      token = auth.split(' ')[1];
+    }
+
+    // Phương án dự phòng: cookie "token"
+    if (!token && req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+
+    // Phương án dự phòng: query ?token=...
+    if (!token && req.query && req.query.token) {
+      token = req.query.token;
+    }
+
     if (!token) {
-      return res.status(401).json({ error: 'Thiếu token xác thực (Bearer token).' });
+      return res.status(401).json({ error: 'Yêu cầu token để xác thực.' });
     }
 
-    if (!process.env.JWT_SECRET) {
-      console.warn('[WARN] JWT_SECRET chưa được cấu hình - không thể xác thực JWT.');
-      return res.status(500).json({ error: 'Máy chủ thiếu cấu hình JWT.' });
+    // Verify JWT
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error('[auth] JWT_SECRET chưa được cấu hình!');
+      return res.status(500).json({ error: 'Cấu hình máy chủ thiếu JWT_SECRET.' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // decoded nên chứa: { id, role, company_id, ... }
-    req.user = decoded || {};
-    req.companyId =
-      decoded?.company_id ??
-      decoded?.companyId ??
-      null;
+    const decoded = jwt.verify(token, secret);
+
+    // Gắn user lên req để router phía sau dùng
+    req.user = decoded; // Có thể thay bằng user DB nếu cần
 
     return next();
-  } catch (err) {
-    if (err?.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Token đã hết hạn. Vui lòng đăng nhập lại.' });
-    }
-    return res.status(401).json({ error: 'Token không hợp lệ.' });
+  } catch (error) {
+    // Token sai / hết hạn
+    return res.status(401).json({ error: 'Token không hợp lệ hoặc đã hết hạn.' });
   }
 };
 
 /**
- * Middleware phân quyền theo vai trò
- * @param {string|string[]} allowedRoles
+ * Middleware nâng cao: Kiểm tra token VÀ vai trò được phép.
  */
-const authorizeRoles = (allowedRoles) => {
-  const allow = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
-  const allowLower = allow.filter(Boolean).map(r => String(r).toLowerCase());
-
+const authorizeRoles = (allowedRoles = []) => {
   return (req, res, next) => {
-    const role = req.user?.role;
-    if (!role || !allowLower.includes(String(role).toLowerCase())) {
+    const user = req.user;
+    const ok =
+      user &&
+      user.role &&
+      allowedRoles.map((r) => String(r).toLowerCase()).includes(String(user.role).toLowerCase());
+
+    if (!ok) {
       return res.status(403).json({ error: 'Bạn không có quyền thực hiện hành động này.' });
     }
     next();
   };
 };
 
-module.exports = { protect, authorizeRoles };
+module.exports = {
+  protect,
+  authorizeRoles,
+};
