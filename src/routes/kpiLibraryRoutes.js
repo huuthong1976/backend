@@ -1,29 +1,49 @@
-// src/routes/kpiLibraryRoutes.js
+// server/routes/kpiLibraryRoutes.js
 const express = require('express');
 const router = express.Router();
-
-const ctrl = require('../controllers/kpiLibraryController');
+const kpiLibraryController = require('../controllers/kpiLibraryController');
 const { protect } = require('../middleware/auth');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
-// yêu cầu đăng nhập cho tất cả API KPI-Library
+// Tất cả các route trong file này đều yêu cầu đăng nhập
+
 router.use(protect);
 
-// healthcheck
-router.get('/health', (_req, res) => res.json({ ok: true }));
 
-// dữ liệu cây & phẳng
-router.get('/tree', ctrl.getKpiLibraryTree);
-router.get('/flat', ctrl.getKpiLibrary);
 
-// export/import (đặt trước /:id để an toàn về matching)
-router.get('/export', ctrl.exportKpis);
-router.post('/import', upload.single('file'), ctrl.importKpis);
 
-// CRUD KPI
-router.post('/', ctrl.createKpi);
-router.put('/:id', ctrl.updateKpi);
-router.delete('/:id', ctrl.deleteKpi);
+router.get('/tree', kpiLibraryController.getKpiLibraryTree);
+
+/**
+ * @route   GET /api/kpi-library/flat
+ * @desc    Lấy danh sách KPI trong thư viện (dạng PHẲNG) - DÙNG CHO FRONTEND
+ */
+router.get('/flat', kpiLibraryController.getKpiLibrary);
+
+
+
+/**
+ * @route   POST /api/kpi-library
+ * @desc    Tạo một KPI mới
+ */
+router.post('/', kpiLibraryController.createKpi);
+
+/**
+ * @route   PUT /api/kpi-library/:id
+ * @desc    Cập nhật một KPI theo ID
+ */
+router.put('/:id', kpiLibraryController.updateKpi);
+
+/**
+ * @route   DELETE /api/kpi-library/:id
+ * @desc    Xóa một KPI theo ID
+ */
+router.delete('/:id', kpiLibraryController.deleteKpi);
+// Route mới cho Export
+router.get('/export', kpiLibraryController.exportKpis);
+
+// Route mới cho Import, dùng middleware 'upload' của multer
+router.post('/import', upload.single('file'), kpiLibraryController.importKpis);
 
 module.exports = router;

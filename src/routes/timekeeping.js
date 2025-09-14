@@ -18,5 +18,9 @@ router.get(
     authorizeRoles('Admin', 'TongGiamDoc'), // Chỉ các vai trò này được truy cập
     timekeepingController.getAllTimesheets
 );
-
+router.get(
+      '/unit-timesheets',
+      authorizeRoles('Admin', 'TongGiamDoc', 'TruongDonVi'),
+      timekeepingController.getUnitTimesheets
+    );
 module.exports = router;
